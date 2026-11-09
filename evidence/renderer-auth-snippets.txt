@@ -1,0 +1,106 @@
+# Renderer bundle auth/API evidence
+
+## function px(t)
+
+character_offset=384893
+
+```text
+ncludes(r))?"http://":"https://")+t),t.endsWith("/")&&(t=t.slice(0,-1))),Ws(t,e)):(typeof window<"u"&&console.warn("Elysia instance server found on client side, this is not recommended for security reason. Use generic type instead."),Ws("http://e.ly",e,[],t));function px(t){const e=t?.accessToken;return cM(ph,{headers:e?{Authorization:`Bearer ${e}`}:{}})}function gx(t){return px(t)}function Xu(t){return px(t)}async function He(t){const{data:e,error:r}=await t;if(r)throw r;return e}const nn=window.electron.process.platform==="darwin",lM=window.electron.process.platform==="win32";window.electron.process.platform;const gn=window.electron.process.env.NODE_ENV==="development";window.electron.process.env.NODE_ENV;var Il={exports:{}};/*!
+ * Pusher JavaScript Library v8.4.0
+ * https://pusher.com/
+ *
+ * Copyright 2020, Pusher
+ * Released under the MIT licence.
+ */var K_;functi
+```
+
+## const e=t?.accessToken
+
+character_offset=384908
+
+```text
+tp://":"https://")+t),t.endsWith("/")&&(t=t.slice(0,-1))),Ws(t,e)):(typeof window<"u"&&console.warn("Elysia instance server found on client side, this is not recommended for security reason. Use generic type instead."),Ws("http://e.ly",e,[],t));function px(t){const e=t?.accessToken;return cM(ph,{headers:e?{Authorization:`Bearer ${e}`}:{}})}function gx(t){return px(t)}function Xu(t){return px(t)}async function He(t){const{data:e,error:r}=await t;if(r)throw r;return e}const nn=window.electron.process.platform==="darwin",lM=window.electron.process.platform==="win32";window.electron.process.platform;const gn=window.electron.process.env.NODE_ENV==="development";window.electron.process.env.NODE_ENV;var Il={exports:{}};/*!
+ * Pusher JavaScript Library v8.4.0
+ * https://pusher.com/
+ *
+ * Copyright 2020, Pusher
+ * Released under the MIT licence.
+ */var K_;function dM(){return
+```
+
+## auth-storage
+
+character_offset=684639
+
+```text
+queries:{retry:!0,retryDelay:t=>Math.min(1e3*2**t,3e4)}}}),B6=300,V6=Vi.object({}).passthrough().transform(t=>t),G6=Vi.object({user:V6.nullable(),accessToken:Vi.string(),refreshToken:Vi.string()}),by=Vi.object({session:G6.nullable()}),fa={session:null},Vr=Yu("auth-storage",fa,{getItem:t=>{const e=localStorage.getItem(t);if(!e)return fa;let r;try{r=JSON.parse(e)}catch{return console.error("User state in localStorage is not valid JSON"),fa}const i=by.safeParse(r);if(i.success)return i.data;const s=Vi.object({state:by}).safeParse(r);return s.success?s.data.state:(console.error("Invalid user state in localStorage"),fa)},setItem:(t,e)=>{const r={session:e.session?{...e.session,user:null}:null};localStorage.setItem(t,JSON.stringify(r))},removeItem:t=>{localStorage.removeItem(t)}});function $V(){mi().set(Vr,{session:null}),Nk.clear()}function q6(){return!!br(Vr).session?.use
+```
+
+## accessToken:Vi.string()
+
+character_offset=684525
+
+```text
+lt()}),o.notifyOnChangeProps?l:u.trackResult(l)}function F6(t,e){return z6(t,E6)}const Nk=new T6({defaultOptions:{queries:{retry:!0,retryDelay:t=>Math.min(1e3*2**t,3e4)}}}),B6=300,V6=Vi.object({}).passthrough().transform(t=>t),G6=Vi.object({user:V6.nullable(),accessToken:Vi.string(),refreshToken:Vi.string()}),by=Vi.object({session:G6.nullable()}),fa={session:null},Vr=Yu("auth-storage",fa,{getItem:t=>{const e=localStorage.getItem(t);if(!e)return fa;let r;try{r=JSON.parse(e)}catch{return console.error("User state in localStorage is not valid JSON"),fa}const i=by.safeParse(r);if(i.success)return i.data;const s=Vi.object({state:by}).safeParse(r);return s.success?s.data.state:(console.error("Invalid user state in localStorage"),fa)},setItem:(t,e)=>{const r={session:e.session?{...e.session,user:null}:null};localStorage.setItem(t,JSON.stringify(r))},removeItem:t=>{localStora
+```
+
+## refreshToken:Vi.string()
+
+character_offset=684549
+
+```text
+rops?l:u.trackResult(l)}function F6(t,e){return z6(t,E6)}const Nk=new T6({defaultOptions:{queries:{retry:!0,retryDelay:t=>Math.min(1e3*2**t,3e4)}}}),B6=300,V6=Vi.object({}).passthrough().transform(t=>t),G6=Vi.object({user:V6.nullable(),accessToken:Vi.string(),refreshToken:Vi.string()}),by=Vi.object({session:G6.nullable()}),fa={session:null},Vr=Yu("auth-storage",fa,{getItem:t=>{const e=localStorage.getItem(t);if(!e)return fa;let r;try{r=JSON.parse(e)}catch{return console.error("User state in localStorage is not valid JSON"),fa}const i=by.safeParse(r);if(i.success)return i.data;const s=Vi.object({state:by}).safeParse(r);return s.success?s.data.state:(console.error("Invalid user state in localStorage"),fa)},setItem:(t,e)=>{const r={session:e.session?{...e.session,user:null}:null};localStorage.setItem(t,JSON.stringify(r))},removeItem:t=>{localStorage.removeItem(t)}});func
+```
+
+## set-platform-access-token
+
+not found
+
+## platform.v2.interviewcoder.co
+
+not found
+
+## desktop.ai.transcription_sessions.assembly_ai
+
+character_offset=750285
+
+```text
+r.sendAudio(_g.Buffer.concat(this.audioDataBuffers).buffer),this.audioDataBuffers=[],this.audioDataBufferBytes=0)}async connect(){if(this.state.state!=="loading")return;const{abortController:e}=this.state;try{const{sessionToken:r}=await He(this.platformClient.desktop.ai.transcription_sessions.assembly_ai.post());if(e.signal.aborted)return;const i=new $F({token:r,sampleRate:this.sampleRate,encoding:"pcm_s16le",formatTurns:!0,maxTurnSilence:500,minEndOfTurnSilenceWhenConfident:160,keyterms:Hk()});if(this.setState({state:"loading",transcriber:i,abortController:e}),i.on("turn",n=>{if(e.signal.aborted)return;const{state:s}=this;if(s.state!=="running")return;const o=!!s.alreadyCommittedPrefix,a=o&&!n.turn_is_formatted||!o&&n.turn_is_formatted;if(n.end_of_turn&&a){const u=new Lt(Ol(n.transcript,s.alreadyCommittedPrefix),this.source,new Date);for(const l of this.transcription
+```
+
+## desktop.ai.transcription_sessions.deepgram
+
+character_offset=808990
+
+```text
+loading"||this.state.state==="running")&&(this.state.abortController.abort(),this.state.connection?.disconnect())}async connect(){if(this.state.state!=="loading")return;const{abortController:e}=this.state;try{const{sessionToken:r}=await He(this.platformClient.desktop.ai.transcription_sessions.deepgram.post());if(e.signal.aborted)return;const n=b3(r,{global:{url:`https://${e$}`}}).listen.live({smart_format:!0,vad_events:!0,interim_results:!0,punctuate:!0,encoding:"linear16",sample_rate:this.sampleRate,channels:1,...this.deepgramOptionOverrides});this.setState({state:"loading",connection:n,abortController:e});const{refreshHeartbeatTimeout:s}=this.initHeartbeatCheck(e);n.on(ut.Open,()=>{e.signal.aborted||(s(),this.setState({state:"running",connection:n,abortController:e,partialText:null}))}),n.on(ut.Transcript,o=>{if(e.signal.aborted)return;const{state:a}=this;if(a.state
+```
+
+## desktop.ai.transcription_sessions.openai
+
+character_offset=817565
+
+```text
+loading"||this.state.state==="running")&&(this.state.abortController.abort(),this.state.socket?.close())}async initializeSocket(){if(this.state.state!=="loading")return;const{abortController:e}=this.state;try{const{sessionToken:r}=await He(this.platformClient.desktop.ai.transcription_sessions.openai.post());if(e.signal.aborted)return;const i=new WebSocket("wss://api.openai.com/v1/realtime?intent=transcription",["realtime",`openai-insecure-api-key.${r}`,"openai-beta.realtime-v1"]);i.onopen=()=>{e.signal.aborted||this.setState({state:"running",socket:i,abortController:e,audioBuffers:new Map,latestTranscription:null})},i.onclose=()=>{e.signal.aborted||(console.error("Transcription websocket closed prematurely"),this.abortLoadingOrRunning(),this.setState({state:"error",error:"unknown"}))},i.onerror=n=>{e.signal.aborted||(console.error("Transcription websocket error:",n),t
+```
+
+
+## main renderer bundle: set-platform-access-token
+
+character_offset=981371
+
+```text
+atures."}),l.jsxs("p",{className:"text-white/60 text-[11px] leading-tight",children:["Upgrade to Pro for unlimited responses",l.jsx("br",{}),"and access to powerful AI models."]})]})}const TN=3600*1e3,NN=1e3*5,IN=1e3*60,ai=new Set;function l9(){for(const e of ai)e();ai.clear()}function c9(e){const[t,n]=yn(At),r=t.session;d.useEffect(()=>{r?.accessToken&&Yn("set-platform-access-token",{accessToken:r.accessToken})},[r?.accessToken]),d.useEffect(()=>{if(!r)return;const a=new AbortController;return(async()=>{r.user?await jN():await new Promise(h=>setTimeout(h,0));let{accessToken:s,refreshToken:o}=r,c=NN;async function u(){if(!a.signal.aborted)try{const h=await St().desktop.user_session.refresh.post({refreshToken:o});if(h.error){if(h.error.status===401){console.warn("Logging out due to invalid refresh token",h.error),Vr();return}throw h.error}s=h.data.accessToken,o=h.data.refreshToken,await Yn("set-platform-access-token",{accessToken:s});const f=await ln(St({accessToken:s}).user.get({headers:{"X-Desk
+```
+
+## main renderer bundle: accessToken:s
+
+character_offset=981581
+
+```text
+IN=1e3*60,ai=new Set;function l9(){for(const e of ai)e();ai.clear()}function c9(e){const[t,n]=yn(At),r=t.session;d.useEffect(()=>{r?.accessToken&&Yn("set-platform-access-token",{accessToken:r.accessToken})},[r?.accessToken]),d.useEffect(()=>{if(!r)return;const a=new AbortController;return(async()=>{r.user?await jN():await new Promise(h=>setTimeout(h,0));let{accessToken:s,refreshToken:o}=r,c=NN;async function u(){if(!a.signal.aborted)try{const h=await St().desktop.user_session.refresh.post({refreshToken:o});if(h.error){if(h.error.status===401){console.warn("Logging out due to invalid refresh token",h.error),Vr();return}throw h.error}s=h.data.accessToken,o=h.data.refreshToken,await Yn("set-platform-access-token",{accessToken:s});const f=await ln(St({accessToken:s}).user.get({headers:{"X-Desktop-Is-Onboarding":e?"true":"false"}}));if(a.signal.aborted)return;n({session:{user:f,accessToken:s,refreshToken:o}})}catch(h){if(a.signal.aborted)return;console.error("Error refreshing session, retrying...",h)
+```
+
+## main renderer bundle: refreshAccess
+
+not found

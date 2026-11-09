@@ -62,7 +62,7 @@ flowchart TD
 
 ### 页面、令牌和 IPC
 
-Preload 只暴露 `ipcRenderer.send/invoke/on` 以及有限的进程信息，没有暴露完整 Node API。主进程把内存中的访问令牌写入 `x-desktop-access-token`，并为平台请求补 `Authorization: Bearer <token>` 与 `X-Trace-Id`。当前实现中的来源判断函数 `Ut()` 恒返回 `true`，所以令牌注入实际由 URL origin 和 referrer 条件控制。证据见 `out/preload/index.cjs` 和 `main/index.js` 578–602、867–1025、2058–2182 行。
+Preload 只暴露 `ipcRenderer.send/invoke/on` 以及有限的进程信息，没有暴露完整 Node API。renderer bundle 将会话中的 `accessToken` 和 `refreshToken` 放入 `localStorage` 的 `auth-storage` 状态，并在 token 刷新后通过 `set-platform-access-token` IPC 交给主进程；平台 API client 以 `Authorization: Bearer <token>` 发起请求。主进程再把内存中的访问令牌写入 `x-desktop-access-token`，并为平台请求补 `Authorization: Bearer <token>` 与 `X-Trace-Id`。当前实现中的来源判断函数 `Ut()` 恒返回 `true`，所以令牌注入实际由 URL origin 和 referrer 条件控制。证据见 `out/preload/index.cjs`、`main/index.js` 578–602、867–1025、2058–2182 行，以及 [`evidence/renderer-auth-snippets.txt`](../evidence/renderer-auth-snippets.txt)。
 
 主进程还把来自 InterviewCoder 页面 `/ipc/*` 的请求重定向到自定义 `chrome-extension://ipc/*` 协议；内置 IPC 路由包含退出、更新、登录、监听会话、自动启动、快捷键和设置操作。路由响应设置了 `Access-Control-Allow-Origin: *`，这是后续动态阶段需要重点验证的本地 IPC 边界。
 
@@ -112,6 +112,7 @@ Recall 初始化在 Windows 上使用 `https://us-west-2.recall.ai`，配置 `re
 - [`evidence/main-index-snippets.txt`](../evidence/main-index-snippets.txt)：主进程精确行号摘录。
 - [`evidence/desktop-sdk-snippets.txt`](../evidence/desktop-sdk-snippets.txt)：Recall SDK 启动和 JSON 行协议摘录。
 - [`evidence/native-strings.txt`](../evidence/native-strings.txt)：native agent/DLL 的筛选字符串证据。
+- [`evidence/renderer-auth-snippets.txt`](../evidence/renderer-auth-snippets.txt)：renderer 的 token 持久化、刷新和 API bearer 证据。
 
 复现命令示例：
 
