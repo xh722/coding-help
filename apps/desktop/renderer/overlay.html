@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'none';">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Local Rebuild overlay</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body class="overlay-page">
+  <main class="overlay-card" aria-label="Local mode overlay">
+    <div class="overlay-top"><span class="privacy-pill">● LOCAL MODE</span><button id="hide-overlay" class="icon-button" type="button" aria-label="Hide overlay">×</button></div>
+    <div class="overlay-state"><span id="overlay-recording" class="recording-dot"></span><strong id="overlay-state">Idle</strong></div>
+    <p id="overlay-transcript" class="overlay-text">Waiting for transcript…</p>
+    <p id="overlay-suggestion" class="overlay-suggestion">Suggestions will appear here.</p>
+  </main>
+  <script src="./overlay.js" defer></script>
+</body>
+</html>

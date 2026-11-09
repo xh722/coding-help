@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'none';">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Local Rebuild</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar"><div><p class="eyebrow">LOCAL REBUILD</p><h1>Interview workspace</h1></div><span id="version" class="muted">v—</span></header>
+    <section id="error" class="error" role="alert" hidden></section>
+    <section class="card login-card" aria-labelledby="login-heading">
+      <div class="card-heading"><div><p class="eyebrow">ACCOUNT</p><h2 id="login-heading">Local session</h2></div><span id="auth-badge" class="badge">Signed out</span></div>
+      <form id="login-form" class="form-grid">
+        <label>Email<input id="email" name="email" type="email" value="19856850715@163.com" autocomplete="username" required></label>
+        <label>Password<input id="password" name="password" type="password" autocomplete="current-password" required></label>
+        <div class="actions"><button type="submit">Sign in</button><button id="logout" type="button" class="secondary" disabled>Sign out</button></div>
+      </form>
+    </section>
+    <section class="card" aria-labelledby="session-heading">
+      <div class="card-heading"><div><p class="eyebrow">CAPTURE</p><h2 id="session-heading">Interview session</h2></div><span id="session-state" class="badge">Idle</span></div>
+      <form id="session-form" class="form-grid">
+        <label>Title<input id="title" type="text" value="Interview practice" required></label>
+        <label>Language<input id="language" type="text" value="English"></label>
+        <label class="full">Notes<textarea id="notes" rows="2" placeholder="Optional local notes"></textarea></label>
+        <div class="actions"><button id="start" type="submit">Start</button><button id="pause" type="button" class="secondary" disabled>Pause</button><button id="resume" type="button" class="secondary" disabled>Resume</button><button id="stop" type="button" class="danger" disabled>Stop</button></div>
+      </form>
+      <div class="toolbar"><button id="screenshot" type="button" class="secondary" disabled>Take screenshot</button><button id="overlay" type="button" class="secondary">Show overlay</button></div>
+    </section>
+    <section class="columns"><section class="card"><div class="card-heading"><h2>Transcript</h2><span class="muted">Live events</span></div><ol id="transcript" class="event-list"><li class="empty">No transcript events yet.</li></ol></section><section class="card"><div class="card-heading"><h2>Suggestions</h2><span class="muted">Local hints</span></div><ol id="suggestions" class="event-list"><li class="empty">No suggestions yet.</li></ol></section></section>
+    <footer class="footer"><span>All data stays on this device.</span><span id="privacy">Privacy indicator: local mode</span></footer>
+  </main>
+  <script src="./app.js" defer></script>
+</body>
+</html>
