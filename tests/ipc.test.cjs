@@ -2,7 +2,7 @@
 
 const assert = require('node:assert/strict');
 const test = require('node:test');
-const { COMMANDS, validateCommand, createIpcRouter } = require('../packages/core/ipc.cjs');
+const { COMMANDS, SCHEMAS, validateCommand, createIpcRouter } = require('../packages/core/ipc.cjs');
 
 test('allowlist contains every renderer command', () => {
   assert.deepEqual(COMMANDS, [
@@ -11,11 +11,18 @@ test('allowlist contains every renderer command', () => {
     'capture.get-displays', 'capture.take-screenshot',
     'overlay.set-visible', 'overlay.set-bounds', 'app.get-version',
   ]);
+  assert.equal(Object.isFrozen(SCHEMAS), true);
+  assert.equal(Object.isFrozen(SCHEMAS['session.start']), true);
 });
 
 test('unknown commands are rejected', async () => {
   const router = createIpcRouter({});
-  await assert.rejects(router.dispatch('shell.exec', {}), /unknown command/i);
+  await assert.rejects(async () => router.dispatch('shell.exec', {}, { source: 'renderer', windowId: 1 }), (error) => {
+    assert.match(error.message, /unknown command/i);
+    assert.equal(error.code, 'UNKNOWN_COMMAND');
+    assert.deepEqual(error.error, { code: 'UNKNOWN_COMMAND', message: 'Unknown command' });
+    return true;
+  });
 });
 
 test('session.start rejects missing metadata title and unknown fields', () => {
@@ -35,9 +42,25 @@ test('dispatch validates and passes a safe context to the handler', async () => 
   assert.deepEqual(received, { payload: { title: 'demo' }, context: { source: 'renderer', windowId: 7 } });
 });
 
+test('dispatch rejects missing or invalid renderer context', async () => {
+  const router = createIpcRouter({ 'app.get-version': () => 'ok' });
+  for (const context of [{}, { source: 'main', windowId: 1 }, { source: 'renderer', windowId: '' }]) {
+    const result = await router.dispatch('app.get-version', {}, context);
+    assert.deepEqual(result, { ok: false, error: { code: 'INVALID_CONTEXT', message: 'Invalid renderer context' } });
+  }
+});
+
+test('sanitizes handler returned errors', async () => {
+  const router = createIpcRouter({ 'app.get-version': () => ({ ok: false, error: {
+    code: 'AUTH_FAILED', message: 'password=secret token=abc', stack: 'private stack', token: 'abc', password: 'secret'
+  }}) });
+  const result = await router.dispatch('app.get-version', {}, { source: 'renderer', windowId: 1 });
+  assert.deepEqual(result, { ok: false, error: { code: 'AUTH_FAILED', message: 'Request failed' } });
+});
+
 test('handler failures become structured errors without stacks', async () => {
   const router = createIpcRouter({ 'app.get-version': () => { throw new Error('token=secret'); } });
-  const result = await router.dispatch('app.get-version', {});
+  const result = await router.dispatch('app.get-version', {}, { source: 'renderer', windowId: 1 });
   assert.equal(result.ok, false);
   assert.equal(result.error.code, 'HANDLER_ERROR');
   assert.match(result.error.message, /request failed/i);

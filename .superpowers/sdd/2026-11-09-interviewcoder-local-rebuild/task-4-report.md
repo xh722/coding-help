@@ -14,3 +14,15 @@ passed
 ```
 
 Concerns: command payload schemas are intentionally minimal and should be extended only when downstream handler contracts are finalized. The design lists thirteen command names although the brief calls them twelve; all thirteen listed names are included.
+
+## Review fix
+
+Added the frozen `SCHEMAS` export, renderer context validation, structured `UNKNOWN_COMMAND` errors, and sanitization for handler-returned failures. Sensitive fields and messages containing token, password, secret, authorization, bearer, or stack data are replaced with the generic `Request failed` message.
+
+Verification:
+
+```text
+node --test tests/ipc.test.cjs       passed
+npm test                             4 test files passed
+npm run check                        passed
+```

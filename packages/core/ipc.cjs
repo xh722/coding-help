@@ -22,6 +22,18 @@ const schemas = {
   'overlay.set-bounds': { required: ['x', 'y', 'width', 'height'], fields: { x: 'number', y: 'number', width: 'number', height: 'number' } },
   'app.get-version': { required: [], fields: {} },
 };
+const SCHEMAS = Object.freeze(Object.fromEntries(Object.entries(schemas).map(([name, schema]) => [
+  name, Object.freeze({ required: Object.freeze([...schema.required]), fields: Object.freeze({ ...schema.fields }) }),
+])));
+
+class IpcError extends Error {
+  constructor(code, message) {
+    super(message);
+    this.name = 'IpcError';
+    this.code = code;
+    this.error = { code, message };
+  }
+}
 
 function validateCommand(name, payload) {
   const schema = schemas[name];
@@ -45,13 +57,26 @@ function validateCommand(name, payload) {
 function createIpcRouter(handlers = {}) {
   return {
     async dispatch(name, payload = {}, context = {}) {
-      if (!schemas[name]) throw new Error(`Unknown command: ${name}`);
+      if (!schemas[name]) throw new IpcError('UNKNOWN_COMMAND', 'Unknown command');
+      if (context.source !== 'renderer' ||
+          (typeof context.windowId !== 'string' && typeof context.windowId !== 'number') ||
+          (typeof context.windowId === 'string' && context.windowId.trim() === '')) {
+        return { ok: false, error: { code: 'INVALID_CONTEXT', message: 'Invalid renderer context' } };
+      }
       const validation = validateCommand(name, payload);
       if (!validation.ok) return { ok: false, error: { code: 'INVALID_PAYLOAD', message: validation.error } };
       const handler = handlers[name];
       if (typeof handler !== 'function') return { ok: false, error: { code: 'NOT_IMPLEMENTED', message: 'Command is unavailable' } };
       try {
-        return await handler(validation.value, { source: context.source, windowId: context.windowId });
+        const result = await handler(validation.value, { source: context.source, windowId: context.windowId });
+        if (result && result.ok === false) {
+          const code = typeof result.error?.code === 'string' ? result.error.code : 'HANDLER_ERROR';
+          const rawMessage = typeof result.error?.message === 'string' ? result.error.message : '';
+          const sensitive = /(token|password|secret|authorization|bearer|stack)/i.test(rawMessage) ||
+            Object.keys(result.error || {}).some((key) => /token|password|secret|stack|authorization/i.test(key));
+          return { ok: false, error: { code, message: sensitive ? 'Request failed' : (rawMessage || 'Request failed') } };
+        }
+        return result;
       } catch {
         return { ok: false, error: { code: 'HANDLER_ERROR', message: 'Request failed' } };
       }
@@ -59,4 +84,4 @@ function createIpcRouter(handlers = {}) {
   };
 }
 
-module.exports = { COMMANDS, validateCommand, createIpcRouter };
+module.exports = { COMMANDS, SCHEMAS, validateCommand, createIpcRouter };
