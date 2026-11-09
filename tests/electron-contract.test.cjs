@@ -45,10 +45,47 @@ test('preload event callbacks receive payload without sender metadata and can be
   assert.equal(fake.listeners.has('local-rebuild:event'), false);
 });
 
+test('preload rejects duplicate event listener registration', () => {
+  const fake = fakeBridge();
+  const api = preload.installBridge(fake);
+  const listener = () => {};
+  api.onEvent(listener);
+  assert.throws(() => api.onEvent(listener), /already registered/);
+});
+
 test('IPC command allowlist is mirrored by preload validation', async () => {
   const fake = fakeBridge();
   const api = preload.installBridge(fake);
   await api.invoke('auth.get-session', {});
   await api.invoke('app.get-version', {});
   await assert.rejects(() => api.invoke('auth.login', null), /Payload must be an object/);
+});
+
+test('main composes transcription events and enforces secure windows', async () => {
+  const events = [];
+  const provider = { start(options) { this.emit = options.emit; }, pause() { events.push('pause'); }, resume() { events.push('resume'); }, stop() { events.push('stop'); } };
+  const { createAppDependencies } = require('../apps/desktop/main/index.cjs');
+  const deps = createAppDependencies({ idFactory: () => 'session-1', clock: () => 1, transcription: provider, suggestions: { suggest: (text) => ({ text: `suggest:${text}` }) } });
+  deps.windows.dashboard = { isDestroyed: () => false, webContents: { send: (_channel, event) => events.push(event) } };
+  await deps.router.dispatch('session.start', { title: 'Test' }, { source: 'renderer', windowId: 1 });
+  provider.emit({ type: 'transcript.final', text: 'answer', timestamp: 2 });
+  assert.deepEqual(events.filter((event) => typeof event === 'object'), [{ type: 'capture.started', source: 'local' }, { type: 'transcript.final', text: 'answer', timestamp: 2 }, { type: 'suggestion', text: 'suggest:answer', timestamp: 2 }]);
+  await deps.router.dispatch('session.pause', {}, { source: 'renderer', windowId: 1 });
+  await deps.router.dispatch('session.resume', {}, { source: 'renderer', windowId: 1 });
+  await deps.router.dispatch('session.stop', {}, { source: 'renderer', windowId: 1 });
+  assert.deepEqual(events.filter((event) => typeof event === 'string'), ['pause', 'resume', 'stop']);
+
+  const created = [];
+  const electron = { BrowserWindow: class { constructor(options) { this.options = options; this.webContents = { on: () => {}, setWindowOpenHandler: () => {} }; created.push(this); } loadFile() { return Promise.resolve(); } on() {} } };
+  const secure = createAppDependencies({ electron });
+  secure.createWindow('dashboard', { webPreferences: { nodeIntegration: true, contextIsolation: false, sandbox: false, preload: '/bad' } });
+  assert.deepEqual(created[0].options.webPreferences, { contextIsolation: true, nodeIntegration: false, sandbox: true, preload: require('node:path').join(require('node:path').dirname(__dirname), 'apps/desktop/preload/index.cjs') });
+});
+
+test('main blocks will-redirect navigation', () => {
+  const { createAppDependencies } = require('../apps/desktop/main/index.cjs');
+  let blocked = false;
+  const electron = { BrowserWindow: class { constructor() { this.webContents = { on: (name, fn) => { if (name === 'will-redirect') fn({ preventDefault: () => { blocked = true; } }); }, setWindowOpenHandler: () => {} }; } loadFile() { return Promise.resolve(); } on() {} } };
+  createAppDependencies({ electron }).createWindow('dashboard');
+  assert.equal(blocked, true);
 });
