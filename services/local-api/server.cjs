@@ -20,6 +20,7 @@ function error(res, status, code, message) {
 
 function createLocalApi({ host = '127.0.0.1', port = 0, clock = () => Date.now() } = {}) {
   if (typeof clock !== 'function') throw new TypeError('clock must be a function');
+  if (!['127.0.0.1', 'localhost', '::1'].includes(host)) throw new TypeError('host must be loopback');
   const sessions = new Map();
   const accessTokens = new Map();
   const refreshTokens = new Map();
@@ -29,30 +30,33 @@ function createLocalApi({ host = '127.0.0.1', port = 0, clock = () => Date.now()
   function issueTokens() {
     const accessToken = randomUUID();
     const refreshToken = randomUUID();
-    accessTokens.set(accessToken, user.id);
+    const expiresAt = clock() + 3600000;
+    accessTokens.set(accessToken, { userId: user.id, expiresAt, refreshToken });
     refreshTokens.set(refreshToken, user.id);
-    return { accessToken, refreshToken, expiresAt: clock() + 3600000 };
+    return { accessToken, refreshToken, expiresAt };
   }
   function bearer(req) {
     const value = req.headers.authorization;
     if (!value || !/^Bearer\s+\S+$/.test(value)) return null;
     const token = value.slice(7).trim();
-    return accessTokens.has(token) ? token : null;
+    const session = accessTokens.get(token);
+    return session && clock() < session.expiresAt ? token : null;
   }
   function readBody(req) {
     return new Promise((resolve, reject) => {
       let size = 0;
+      let rejected = false;
       const chunks = [];
       req.on('data', (chunk) => {
         size += chunk.length;
-        if (size > MAX_BODY_BYTES) {
+        if (size > MAX_BODY_BYTES && !rejected) {
+          rejected = true;
           reject(Object.assign(new Error('Request body too large'), { code: 'BODY_TOO_LARGE' }));
-          req.destroy();
-          return;
         }
-        chunks.push(chunk);
+        if (!rejected) chunks.push(chunk);
       });
       req.on('end', () => {
+        if (rejected) return;
         if (!chunks.length) return resolve({});
         try { resolve(JSON.parse(Buffer.concat(chunks).toString('utf8'))); }
         catch { reject(Object.assign(new Error('Invalid JSON body'), { code: 'INVALID_JSON' })); }
@@ -90,7 +94,9 @@ function createLocalApi({ host = '127.0.0.1', port = 0, clock = () => Date.now()
     if (req.method === 'POST' && url.pathname === '/auth/logout') {
       const token = requireAuth(req, res);
       if (!token) return;
+      const tokenState = accessTokens.get(token);
       accessTokens.delete(token);
+      if (tokenState) refreshTokens.delete(tokenState.refreshToken);
       res.writeHead(204); return res.end();
     }
     if (req.method === 'GET' && url.pathname === '/user') {

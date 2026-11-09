@@ -13,3 +13,13 @@ Validation:
 - `npm run check` passed.
 
 Concern: state is intentionally process-local and is lost when the server stops; this matches the local rebuild brief.
+
+## Review fixes
+
+Added regression coverage and fixes for oversized JSON bodies (structured 413 without destroying the request), malformed JSON, loopback host enforcement, access-token expiry based on the injected clock, refresh-token revocation on logout, and refresh-token replay rejection.
+
+Validation after fixes:
+
+- `node --test tests/local-api.test.cjs` passed: 3 tests.
+- `npm test` passed: 19 tests.
+- `npm run check` passed.

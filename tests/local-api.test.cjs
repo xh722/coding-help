@@ -77,9 +77,43 @@ test('local API supports demo auth, protected sessions, events, refresh, and log
     });
     assert.equal(logout.response.status, 204);
 
+    const replay = await request(base, '/auth/refresh', {
+      method: 'POST', body: JSON.stringify({ refreshToken: refreshed.body.refreshToken }),
+    });
+    assert.equal(replay.response.status, 401);
+
     const afterLogout = await request(base, '/user', { headers: { authorization: `Bearer ${refreshed.body.accessToken}` } });
     assert.equal(afterLogout.response.status, 401);
   } finally {
     await api.stop();
   }
+});
+
+test('local API rejects malformed and oversized JSON with structured errors', async () => {
+  const api = createLocalApi({ host: '127.0.0.1', port: 0 });
+  await api.start();
+  const base = `http://${api.address().host}:${api.address().port}`;
+  try {
+    const malformed = await request(base, '/auth/login', { method: 'POST', body: '{' });
+    assert.equal(malformed.response.status, 400);
+    assert.equal(malformed.body.error.code, 'INVALID_JSON');
+    const oversized = await request(base, '/auth/login', { method: 'POST', body: JSON.stringify({ data: 'x'.repeat(1024 * 1024) }) });
+    assert.equal(oversized.response.status, 413);
+    assert.deepEqual(oversized.body.error, { code: 'BODY_TOO_LARGE', message: 'Request body too large' });
+  } finally { await api.stop(); }
+});
+
+test('local API enforces loopback hosts and access token expiry', async () => {
+  assert.throws(() => createLocalApi({ host: '0.0.0.0' }), /loopback/i);
+  let now = 1000;
+  const api = createLocalApi({ host: '127.0.0.1', port: 0, clock: () => now });
+  await api.start();
+  const base = `http://${api.address().host}:${api.address().port}`;
+  try {
+    const login = await request(base, '/auth/login', { method: 'POST', body: JSON.stringify({ email: 'local-dev@example.com', password: 'local-dev-password' }) });
+    now += 3600001;
+    const expired = await request(base, '/user', { headers: { authorization: `Bearer ${login.body.accessToken}` } });
+    assert.equal(expired.response.status, 401);
+    assert.equal(expired.body.error.code, 'UNAUTHORIZED');
+  } finally { await api.stop(); }
 });
