@@ -1,0 +1,277 @@
+# Native agent strings selected from the supplied PE
+meeting_H1
+google_mH1
+ft_teamsH1
+ry_tokenL3B
+google_mH3
+zoom_webH9
+meeting_H3
+google_lH3
+audio_onH3
+meeting_H3
+meeting_H3
+google_mH3
+zoom_rtmH3
+ft_teamsL3J
+meeting_H3
+meeting_H3
+google_mH3
+zoom_rtmH3
+ft_teamsH3J
+audioDesH3
+audioLanH3
+audioDesH3
+audioLanH3
+video_miL
+sh_tokenL3B
+meeting_H3
+zoom_rtmH3
+zoom_rtmH3
+meeting_H3
+ry_tokenH1
+audio/x-H3
+video/x-H3
+audio_stH3
+audio_enH3
+AudioAddH3
+upload_uL9
+google_mH1
+ft_teamsH1
+screensh
+screensh
+ft_teamsH
+google_mH
+meeting_H3
+screenshH
+:zoomum1
+google_mH3
+ft_teamsL3B
+ry_tokenL3B
+screenshL3	I
+video/x-H3
+video_seH
+:zoomum1
+google_mH3
+ft_teamsL3B
+audio-stH3
+audio_miH
+audio_seH
+on-tokenL3@
+on-tokenL3@
+screensh
+screensh
+meeting_H3
+screenshH3
+screenshH3
+video-wiH3
+video-heH3
+video-wiH3
+video-heH3
+GstAudioH1
+audio/x-H3
+screenshH
+screenshH
+upload-pH
+k_uploadH
+uploadinH3
+audio_mpH!
+:httpt(E
+;httpt0E
+HTTP/1.1I
+HTTP/1.0I3
+audio_srH3
+video/x-H3
+video/x-H3
+video/x-H
+video/x-H3
+video/x-H
+:zoomum1
+google_mH3
+ft_teamsL3B
+meeting_H3
+9httpt>L9
+:httpt(E
+;httpt0E
+o HTTP/2H
+HTTP/1.1I
+HTTP/1.0I3
+HTTP/1.1I
+HTTP/1.0I3
+8httpuMH
+audio-stH
+https://K
+essTokenL1
+tokenTypH1
+https://I
+https://I
+https://I
+HTTP/1.1I3
+HTTP/1.0I3
+o HTTP/2I
+http/1.1H
+HTTP/1.1H
+HTTP/1.1H
+HTTP/1.0H
+http/1.1H
+HTTP/1.0
+HTTP/1.1H
+HTTP/1.0
+HTTP/1.1J
+HTTP/1.0H9
+HTTP/1.1H9
+HTTP/1.0M9
+HTTP/1.1M9
+ry_interval_secsretry_interval_sc_participant_idstatic_participaC:\Users\runneradmin\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde_json-1.0.108\src\de.rs
+C:\Users\runneradmin\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde_json-1.0.108\src\value\de.rs
+request_recording_permission_on_host_joinrequire_recording_permissionjoin_token_urljoin_tokenthird_party_recording_tokenthird_party_recording_token_urlzak_urlzaksdk_credentialsoauth_access_tokenoauth_app_idoauth_credentialmeeting_idroleuser_emailstruct Zoom with 15 elements
+conf_user_iduser_guidguestosstruct ZoomData with 4 elements
+zoommicrosoft_teamsslackgoogle_meetstruct ExtraData with 4 elements
+meetingattendeehuddle_idchannel_idparticipant_meta_mapping
+meeting_uuidrtms_stream_idserver_urlssignaturestruct ZoomRtms with 4 elements
+auth_tokenbot_configretry_interval_secsretry_attemptsmetadatastruct CreateBot with 5 elements
+space_nameaccess_tokenstruct MeetMedia with 2 elements
+login_requiredgoogle_login_group_idgoogle_login_modegoogle_login_emailgoogle_login_idgoogle_login_sso_v2_workspace_domaingoogle_login_sso_v2_private_keygoogle_login_sso_v2_certstruct GoogleMeet with 9 elements
+static_participant_idstruct GoogleMeetData with 1 element
+platformusermeeting_urlbot_namemeeting_passwordsvix_app_idautomatic_leaveoutput_mediaautomatic_video_outputautomatic_audio_outputchatmetronomebreakout_roomchime_sdkwebexzoom_rtmsgoogle_meet_media_apifeature_flagsreal_time_mediacalendar_event_detailsinclude_bot_in_recordingworkspace_idmeeting_direct_connect_idadhocrecording_config_finalizedlibbot_experimentsbot_metadatalibbot_kinddesktop_window_idendpoint_secretsC:\a\nebula\nebula\bots\libbot\libbot-common-plugin\src\bot.rs
+azure_credentialsweb_login_credentialsstruct MicrosoftTeams with 2 elements
+audioDescaudioLanguagecontenterrorCodekeyNodeIdlanguagemsgIdmsgTypenodeIdpossizesourcespeakerIdtimespamtimestamp?
+meeting_roleparticipant_typeuser_idtenant_idclient_versionstruct MicrosoftTeamsData with 6 elements
+customer_idapi_tokenstruct MetronomeSettings with 2 elements
+sdk_keysdk_secretstruct ZoomSdkCredentials with 2 elements
+idaccess_token_expires_atrefresh_tokenaccess_token_callback_urlaccount_idclient_idclient_secretconsecutive_error_countstruct ZoomOAuthCredential with 12 elements
+usernamesso_v2_workspace_domainsso_v2_private_keysso_v2_certstart_urltotp_secretpasswordrecovery_emailrecovery_phonestruct GoogleMeetCredentials with 10 elements
+audiostruct IncludeBotInRecording with 1 element%
+spokenLanguagetrackLanguageuserIdtimestampAudioSentstreamId
+in_call_recordingdatareplay_on_participant_joinstruct AutomaticAudioOutputSettings with 1 element
+in_call_not_recordingstruct AutomaticVideoOutputSettings with 2 elements
+sso_v2_upnsso_v2_tenant_idstruct MicrosoftTeamsWebCredentials with 7 elements
+screenxywidthheightarstruct Rect with 7 elements
+struct AutomaticAudioOutputStateSettings with 2 elements
+debounce_modedebounce_intervaldisable_afterstruct AutomaticAudioOutputReplaySettings with 3 elements
+/rustc/f8297e351a40c1439a467bbbb6879088047f50b3\library\alloc\src\slice.rs
+C:\Users\runneradmin\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\tokio-1.41.1\src\runtime\task\core.rs
+C:\Users\runneradmin\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde_json-1.0.108\src\value\de.rs
+video_mixed_mp4audio_mixed_rawaudio_mixed_mp3participant_eventstranscriptmeeting_metadatavideo_separate_mp4audio_separate_rawvideo_mixed_flvvideo_separate_pngvideo_separate_h264audio_separate_speech_only_oggaudio_separate_mp3struct ArtifactsConfig with 13 elements
+b64_datastruct variant AudioOutputType::Mp3 with 1 element
+struct variant VideoOutputType::Jpeg with 1 element
+participant_video_when_screensharestart_recording_onpartial_resultsstruct EndpointWebhookConfig with 2 elements
+audiostruct IncludeBotInRecording with 1 element
+video_mixed_layoutvideo_mixed_participant_video_when_screenshareinclude_bot_in_recordingartifactsrealtime_endpointslegacy_settingsstruct OutputMediaWebpageConfig with 1 element
+s3_keyfile_pathhigh_resolution_outputdefaulttokenstruct RevCredentials with 2 elements
+hosttemporary_tokenstruct DeepgramCredentials with 4 elements
+_inner_credentialsstruct RecallAiCredentials with 1 element
+use_separate_streams_when_availablelegacy_enhanced_diarizationlegacy_only_transcribe_voicestruct ArtifactTranscriptDiarizationConfig with 3 elements
+credentialssettingsenhanced_diarizationonly_transcribe_voiceuse_separate_streamsstruct TranscriptionProviderConfig with 5 elements
+providerprovider_data_s3_keyprovider_data_file_pathdiarizationdiarization_algorithmstruct ArtifactTranscriptConfigHelper with 9 elements
+C:\Users\runneradmin\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.219\src\private\de.rs
+/rustc/f8297e351a40c1439a467bbbb6879088047f50b3\library\alloc\src\slice.rs
+rosoft_teams_webmicrosoft_teams_
+PRI * HTTP/2.0
+C:\Users\runneradmin\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\glib-0.15.12\src\object.rs
+C:\Users\runneradmin\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\http-body-util-0.1.3\src\util.rs
+C:\Users\runneradmin\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\bytes-1.10.1\src\bytes_mut.rs
+gstreamer-pipeline-errorpipeline-errorbot_erroredgstreamer pipeline errorstruct ParticipantMetaDataC:\a\nebula\nebula\bots\libbot\libbot-common-plugin\src\util\async\queue.rs
+C:\Users\runneradmin\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\h2-0.3.27\src\proto\streams\send.rs
+decrementing all windows; dec=
+internal error: entered unreachable code/rustc/f8297e351a40c1439a467bbbb6879088047f50b3\library\std\src\sync\mpmc\mod.rs
+/rustc/f8297e351a40c1439a467bbbb6879088047f50b3\library\std\src\sync\mpmc\zero.rs
+/rustc/f8297e351a40c1439a467bbbb6879088047f50b3\library\std\src\sync\mpmc\waker.rs
+/rustc/f8297e351a40c1439a467bbbb6879088047f50b3\library\std\src\sync\mpmc\context.rs
+C:\a\nebula\nebula\bots\libbot\libbot-plugin-desktop-debug-file-capture\src\lib.rs
+/api/v2/_internal/desktop-sdk-upload/debug_file_presigned_url?key=&size=
+
+# agent-windows.exe selected strings
+Zoom MeeH
+-captureH
+uploadReL3
+StopRecordingParamsPauseRecordingParamsStartRecordingParamsResumeRecordingParamsUploadRecordingParamsRequestPermissionParamscommandinternally tagged enum CommandLogParamsInitParamsstruct Logstruct Log with 2 elementsn
+struct InitParamsvariant identifierinitshutdownrequestPermissionstartRecordingstopRecordingpauseRecordingresumeRecordinguploadRecordingprepareDesktopAudioRecording
+struct StopRecordingstruct StopRecording with 2 elements<
+struct PauseRecordingstruct PauseRecording with 2 elements
+struct StartRecordingstruct StartRecording with 2 elements
+struct ResumeRecordingstruct ResumeRecording with 2 elements
+struct UploadRecordingstruct UploadRecording with 2 elements
+struct StopRecordingParamsstruct StopRecordingParams with 1 element
+struct PauseRecordingParamsstruct PauseRecordingParams with 1 element
+struct StartRecordingParamsstruct StartRecordingParams with 1 element
+struct ResumeRecordingParamsstruct ResumeRecordingParams with 1 element
+struct UploadRecordingParamsstruct UploadRecordingParams with 1 element
+struct PrepareDesktopAudioRecordingstruct PrepareDesktopAudioRecording with 1 element
+Windows.Graphics.Capture.Direct3D11CaptureFramePool
+!Windows.Graphics.Capture.GraphicsCaptureItem
+left the meetingended the meetingoZRSLeFTMc0caGWPvkssMZbhttps://\S+?/j/\d+\?pwd=[^\s\x00]+src\actors\zoom.rs
+ZoomAnnoWindowWndClassevent src\actors\zoom.rs:233agent_windows::actors::zoom
+src\actors\zoom.rs
+event src\actors\zoom.rs:251
+Could not gather zoom participants due to missing current view panes
+Could not gather zoom participants due to missing video render window
+event src\actors\zoom.rs:329
+event src\actors\zoom.rs:299
+event src\actors\zoom.rs:98
+event src\actors\zoom.rs:114
+event src\actors\zoom.rs:124
+event src\actors\zoom.rs:144
+Zoom window had a different id, ending the current meeting:
+A zoom meeting was detected:
+Zoom window was missing, ending the current meeting:
+"meetingJoinUrl"\s*:\s*"(?:[^"\\]|\\.)*"src\actors\teams.rs
+PackagesMSTeams_8wekyb3d8bbweLocalCacheMicrosoftMSTeamsEBWebViewWV2Profile_tfwIndexedDBhttps_teams.microsoft.com_0.indexeddb.leveldbC:\Users\runneradmin\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\regex-1.12.2\src\regex\bytes.rs
+meetingJoinUrlScreenBorderWindowevent src\actors\teams.rs:302agent_windows::actors::teamssrc\actors\teams.rs
+Could not gather teams participants due to missing chrome render window
+Context menu is availableHas context menuMyself videovdi-frame-occlusionevent src\actors\teams.rs:406
+event src\actors\teams.rs:124
+event src\actors\teams.rs:161
+TeamsWebView
+A teams meeting was detected:
+Teams window was missing, ending current meeting:
+recall_ai_command|
+windowIduploadTokenMust have a meeting by now
+recording-startedMeeting does not existMissing uploadToken on configMissing windowId on configupload-progress
+Windows Desktop SDK Agent started. Waiting for JSON commands to stdin...05@@
+Lost video capture actor due to error:
+Lost screen capture due to error:
+Lost remote audio capture due to error:
+Lost local audio capture due to error:
+Lost zoom actor due to error:
+Attempting to restart zoom actorX8@@
+Lost teams actor due to error:
+Attempting to restart teams actor
+Lost google meet actor due to error:
+Attempting to restart google meet actor
+DisconnectedInitShutdownRequestPermissionStartRecordingStopRecordingPauseRecordingResumeRecordingUploadRecordingPrepareDesktopAudioRecordingLog
+mp4mp3/api/v2/_internal/desktop-sdk-upload/extra_config/
+transcript.datatranscript.provider_datatranscript.partial_data
+use_separate_streams_when_availabletranscriptparticipant_events.joinparticipant_events.leaveparticipant_events.updateparticipant_events.speech_onparticipant_events.speech_offparticipant_events.webcam_onparticipant_events.webcam_offparticipant_events.screenshare_onparticipant_events.screenshare_offparticipant_events.chat_message
+https://api.recall.ai/api/v2/_internal/desktop-sdk-upload/extra_config/
+Failed to increment MTA usageC:\Users\runneradmin\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\windows-capture-1.4.4\src\capture.rs
+src\actors\video_capture.rs
+Google meet window was missing, ending the current meeting:
+A google meet meeting was detected:
+Google meet end of call window detected, ending current meeting:
+src\actors\audio_capture.rs
+event src\actors\audio_capture.rs:248agent_windows::actors::audio_capturesrc\actors\audio_capture.rs
+Failed to get default device for capture
+Failed to get audio capture client
+Failed to start video capture for window
+Failed to start fullscreen video capture
+IsBorderRequiredIsCursorCaptureEnabled
+C:\Users\runneradmin\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\windows-capture-1.4.4\src\d3d11.rs
+C:\Users\runneradmin\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\windows-capture-1.4.4\src\frame.rs
+qZoomTeamsGoogleMeetWholeDesktopC:\Users\runneradmin\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\rustfft-6.4.1\src\lib.rs
+FailedToJoinThreadFailedToInitWinRTFailedToCreateDispatcherQueueControllerFailedToShutdownDispatcherQueueFailedToSetDispatcherQueueCompletedHandlerItemConvertFailedDirectXErrorGraphicsCaptureApiErrorNewHandlerErrorFrameHandlerError
+capture(pid=, group=, slot=) =>
+invalid capture index
+utf8_emptyautoprewhich_capturesnfa_size_limitonepass_size_limithybrid_cache_capacityhybriddfadfa_size_limitdfa_state_limitonepassbacktrackline_terminator
+C:\Users\runneradmin\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\regex-automata-0.4.13\src\util\captures.rs
+maximum_lenlook_setlook_set_prefixlook_set_suffixlook_set_prefix_anylook_set_suffix_anyutf8explicit_captures_lenstatic_explicit_captures_lenliteralalternation_literalPropertiesI
+CaptureindexsubClassLook
+invalid escape sequence found in character classinvalid character class range, the start must be <= the endinvalid range boundary, must be a literalunclosed character classdecimal literal emptydecimal literal invalidhexadecimal literal emptyhexadecimal literal is not a Unicode scalar valueinvalid hexadecimal digitincomplete escape sequence, reached end of pattern prematurelyunrecognized escape sequencedangling flag negation operatorduplicate flagflag negation operator repeatedexpected flag but got end of regexunrecognized flagduplicate capture group nameempty capture group nameinvalid capture group characterunclosed capture group nameunclosed groupunopened groupexceed the maximum number of nested parentheses/brackets (
+Expected transcriptC:\Users\runneradmin\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\rustls-0.23.34\src\crypto\hash.rs
+lefttoprightbottomDocumentCustomButtonCalendarCheckBoxComboBoxEditHyperlinkImageListItemListMenuMenuBarMenuItemProgressBarRadioButtonScrollBarSliderSpinnerStatusBarTabTabItemTextToolBarToolTipTreeTreeItemGroupThumbDataGridDataItemSplitButtonWindowPaneHeaderHeaderItemTableTitleBarSeparatorSemanticZoomAppBarUnsupported value
+DataLengthMismatchreceivedDataLengthTooShortEventTimeoutAutomaticFormatConversionInExclusiveModeLoopbackWithExclusiveModeRenderToCaptureDeviceWindowsC:\Users\runneradmin\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\widestring-1.2.1\src\ucstring.rs
+Windows.Graphics.Capture.GraphicsCaptureSession
+Failed to remove Frame Arrived event handlerC:\Users\runneradmin\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\windows-capture-1.4.4\src\graphics_capture_api.rs
+Failed to Close Capture Session
+Failed to remove Capture Session Closed event handler
+RtlCaptureContext
+libbot_desktop_rs.dll

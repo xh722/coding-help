@@ -1,0 +1,129 @@
+# Installer and extracted artifact metadata
+
+37843b027f36c67153bf16fae40d94fc3542d765a5a41cb67e7fc39755a96f39  interviewcoder-setup.exe
+25b7be8bc102de71ab58bf828a30818edaf2071f91876ac444803c45da0000c6  extracted/app.asar
+05220d69baed1ec63c11566a7409188491157b258dadf3c8a8362f3419fbc9c2  extracted/interviewcoder.exe
+ff73741d00865dec7e68ca6d9b204132af8126ec1f344982b7318f7215e546ee  extracted/agent-windows.exe
+7fa8faf0ef6c270b7d3092d83510a12a52cd21733cd614a565404bd503e1da6b  extracted/libbot_desktop_rs.dll
+eb6d08b468b98c8b1b81468c422283a778ebd3398fdd05c2f8792d8f477908a2  extracted/lightningcss.win32-x64-msvc.node
+e613d30ebd9794cc17c692700afd076f748f06f44ea1f8e7b6a1ed2f9a4d8286  extracted/tailwindcss-oxide.win32-x64-msvc.node
+
+extracted/interviewcoder.exe: PE32+ executable (GUI) x86-64, for MS Windows
+extracted/agent-windows.exe: PE32+ executable (console) x86-64, for MS Windows
+extracted/libbot_desktop_rs.dll: PE32+ executable (DLL) (GUI) x86-64, for MS Windows
+
+## InterviewCoder runtime PE
+Time/Date		Tue Sep  2 06:06:33 2025
+Magic			020b	(PE32+)
+MajorLinkerVersion	14
+MinorLinkerVersion	0
+AddressOfEntryPoint	0000000004fe4190
+ImageBase		0000000140000000
+MajorSubsystemVersion	10
+MinorSubsystemVersion	0
+Subsystem		00000002	(Windows GUI)
+DllCharacteristics	0000c160
+Entry e 0000000000000000 00000000 CLR Runtime Header
+	DLL Name: dbghelp.dll
+	DLL Name: OLEAUT32.dll
+	DLL Name: VERSION.dll
+	DLL Name: WINMM.dll
+	DLL Name: WINSPOOL.DRV
+	DLL Name: WS2_32.dll
+	DLL Name: KERNEL32.dll
+	DLL Name: ntdll.dll
+	DLL Name: USERENV.dll
+	DLL Name: CRYPT32.dll
+	DLL Name: dhcpcsvc.DLL
+	DLL Name: Secur32.dll
+	DLL Name: IPHLPAPI.DLL
+	DLL Name: WINHTTP.dll
+	DLL Name: DWrite.dll
+	DLL Name: WINTRUST.dll
+
+## Desktop agent PE
+Time/Date		Wed Nov  5 23:53:26 2025
+Magic			020b	(PE32+)
+MajorLinkerVersion	14
+MinorLinkerVersion	44
+AddressOfEntryPoint	00000000003d2f7c
+ImageBase		0000000140000000
+MajorSubsystemVersion	6
+MinorSubsystemVersion	0
+Subsystem		00000003	(Windows CUI)
+DllCharacteristics	00008160
+Entry e 0000000000000000 00000000 CLR Runtime Header
+	DLL Name: bcryptprimitives.dll
+	DLL Name: oleaut32.dll
+	DLL Name: kernel32.dll
+	DLL Name: ole32.dll
+	DLL Name: combase.dll
+	DLL Name: shell32.dll
+	DLL Name: bcrypt.dll
+	DLL Name: crypt32.dll
+	DLL Name: ntdll.dll
+	DLL Name: api-ms-win-core-synch-l1-2-0.dll
+	DLL Name: user32.dll
+	DLL Name: api-ms-win-core-winrt-l1-1-0.dll
+	DLL Name: dwmapi.dll
+	DLL Name: psapi.dll
+	DLL Name: advapi32.dll
+	DLL Name: ws2_32.dll
+	DLL Name: coremessaging.dll
+	DLL Name: d3d11.dll
+	DLL Name: propsys.dll
+	DLL Name: mmdevapi.dll
+	DLL Name: ADVAPI32.dll
+	DLL Name: KERNEL32.dll
+	DLL Name: libbot_desktop_rs.dll
+
+## libbot_desktop_rs.dll imports
+Time/Date		Wed Nov  5 23:51:23 2025
+Magic			020b	(PE32+)
+MajorLinkerVersion	14
+MinorLinkerVersion	44
+AddressOfEntryPoint	0000000001884090
+ImageBase		0000000180000000
+MajorSubsystemVersion	6
+MinorSubsystemVersion	0
+Subsystem		00000002	(Windows GUI)
+DllCharacteristics	00000160
+Entry e 0000000000000000 00000000 CLR Runtime Header
+	DLL Name: bcryptprimitives.dll
+	DLL Name: api-ms-win-core-synch-l1-2-0.dll
+	DLL Name: gstvideo-1.0-0.dll
+	DLL Name: gstbase-1.0-0.dll
+	DLL Name: gstreamer-1.0-0.dll
+	DLL Name: gobject-2.0-0.dll
+	DLL Name: glib-2.0-0.dll
+	DLL Name: gstaudio-1.0-0.dll
+	DLL Name: gio-2.0-0.dll
+	DLL Name: gstapp-1.0-0.dll
+	DLL Name: ws2_32.dll
+	DLL Name: kernel32.dll
+	DLL Name: advapi32.dll
+	DLL Name: shell32.dll
+	DLL Name: ole32.dll
+	DLL Name: secur32.dll
+	DLL Name: crypt32.dll
+	DLL Name: ntdll.dll
+	DLL Name: bcrypt.dll
+
+## ASAR/package/update metadata
+provider: generic
+url: https://downloads.v2.interviewcoder.co/downloads/
+updaterCacheDirName: interviewcoder-updater
+package.json byte length: 1921
+package.json parse:
+JSONDecodeError: Expecting ',' delimiter: line 66 column 4 (char 1920)
+
+## Renderer CSP
+    10	    <meta
+    11	      http-equiv="Content-Security-Policy"
+    12	      content="default-src 'self'; script-src 'self' data: https://us.i.posthog.com https://us-assets.i.posthog.com ; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://app.v2.interviewcoder.co https://workoscdn.com https://img.cluely.com; media-src 'self' blob:; frame-src https://app.v2.interviewcoder.co  https://desktop.v2.interviewcoder.co; font-src 'self' data:; connect-src 'self' https://platform.v2.interviewcoder.co https://desktop.v2.interviewcoder.co wss://service.transcribe.cluely.com https://service.transcribe.cluely.com https://us.i.posthog.com https://us-assets.i.posthog.com https://sockjs-us3.pusher.com wss://api.openai.com wss://api.deepgram.com wss://streaming.assemblyai.com wss://ws-us3.pusher.com wss://api.gladia.io "
+    13	    />
+    14	    <script src=""></script>
+    15	    <script type="module" crossorigin src="./assets/main-CCRWlP5p.js"></script>
+    16	    <link rel="modulepreload" crossorigin href="./assets/globals-DN6ckj3o.js">
+    17	    <link rel="modulepreload" crossorigin href="./assets/window-u92YNigu.js">
+    18	    <link rel="stylesheet" crossorigin href="./assets/globals-C9RRvlyx.css">

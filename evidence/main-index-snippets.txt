@@ -1,0 +1,878 @@
+# Main process source excerpts (exact line numbers from the extracted ASAR)
+
+## main/index.js lines 137,164
+   137	const { autoUpdater: H } = yt, Mt = 1e3 * 60 * 60;
+   138	let q = { state: "none" }, et = !1;
+   139	function Pt() {
+   140	  if (v || !De || De === "") {
+   141	    console.log("[AutoUpdate] Skipped - no update endpoint configured");
+   142	    return;
+   143	  }
+   144	  try {
+   145	    H.on("update-available", (t) => {
+   146	      q = { state: "available", version: t.version }, a.sendToWebContents("updater-state", q);
+   147	    }), H.on("update-downloaded", (t) => {
+   148	      q = { state: "downloaded", version: t.version }, a.sendToWebContents("updater-state", q);
+   149	    }), H.setFeedURL({
+   150	      provider: "generic",
+   151	      url: De
+   152	    }), console.log("[AutoUpdate] Checking for updates..."), H.checkForUpdates(), setInterval(() => {
+   153	      console.log("[AutoUpdate] Checking for updates..."), H.checkForUpdates();
+   154	    }, Mt);
+   155	  } catch (t) {
+   156	    console.error("[AutoUpdate] Failed to set up auto-update:", t);
+   157	  }
+   158	}
+   159	function tt() {
+   160	  return q;
+   161	}
+   162	function st() {
+   163	  q.state !== "none" && (Ue(q.version) === Ue(u.getVersion()) ? a.createOrRecreateWindows() : (et = !0, H.quitAndInstall()));
+   164	}
+
+## main/index.js lines 174,235
+   174	class Ie {
+   175	  constructor(e, s) {
+   176	    if (this.moreOptions = s, this.window = new Te(
+   177	      e || {
+   178	        show: !1,
+   179	        type: "panel",
+   180	        // window style options
+   181	        alwaysOnTop: !0,
+   182	        transparent: !0,
+   183	        frame: !1,
+   184	        roundedCorners: !1,
+   185	        hasShadow: !1,
+   186	        // window resize options
+   187	        fullscreenable: !1,
+   188	        minimizable: !1,
+   189	        // macOS specific options
+   190	        hiddenInMissionControl: !0,
+   191	        // Windows specific options
+   192	        skipTaskbar: !0,
+   193	        // will be overwritten by this.restoreUndetectability()
+   194	        webPreferences: {
+   195	          preload: te(se, "../preload/index.cjs")
+   196	        }
+   197	      }
+   198	    ), this.window.setTitle(K), this.restoreUndetectability(), (S || B) && (this.window.on("show", () => {
+   199	      this.restoreUndetectability();
+   200	    }), this.window.on("restore", () => {
+   201	      this.restoreUndetectability();
+   202	    }), this.window.on("focus", () => {
+   203	      this.restoreUndetectability();
+   204	    })), s.alwaysOnTop && (this.window.setVisibleOnAllWorkspaces(!0, { visibleOnFullScreen: !0 }), this.window.setResizable(!1), S && (this.window.setAlwaysOnTop(!0, "screen-saver", 1), this.window.webContents.setBackgroundThrottling(!1)), B)) {
+   205	      let n = !1;
+   206	      const r = setInterval(() => {
+   207	        if (this.window.isDestroyed()) {
+   208	          clearInterval(r);
+   209	          return;
+   210	        }
+   211	        !this.window.isFocused() && !n ? (this.window.showInactive(), n = !0) : this.window.isFocused() && n && (n = !1);
+   212	      }, 100);
+   213	      this.disposers.push(() => clearInterval(r));
+   214	    }
+   215	    this.moveToDisplay(s.initialDisplay), this.setIgnoreMouseEvents(!0), this.window.once("ready-to-show", () => {
+   216	      s.alwaysOnTop && this.window.show(), this.window.setTitle(K);
+   217	    }), this.window.on("page-title-updated", () => {
+   218	      this.window.getTitle() !== K && this.window.setTitle(K);
+   219	    }), this.window.webContents.on("will-navigate", (n) => {
+   220	      n.preventDefault();
+   221	    }), this.window.webContents.setWindowOpenHandler((n) => {
+   222	      try {
+   223	        const r = new URL(n.url);
+   224	        (r.protocol === "https:" || v && r.protocol === "http:" || r.protocol === "mailto:") && (Ae.openExternal(n.url), a.sendToWebContents("opened-external-link", { url: n.url }));
+   225	      } catch (r) {
+   226	        $(`error trying to open url ${n.url}`, r);
+   227	      }
+   228	      return { action: "deny" };
+   229	    }), u.on("before-quit", () => {
+   230	      this.isActuallyClosing = !0;
+   231	    }), this.window.on("close", (n) => {
+   232	      this.isActuallyClosing || Nt() || (n.preventDefault(), this.fakeClose());
+   233	    }), this.loadRenderer(), s.justFinishedOnboarding && this.window.webContents.once("did-finish-load", () => {
+   234	      a.sendToWebContents("trigger-login", null);
+   235	    });
+
+## main/index.js lines 488,603
+   488	  restoreUndetectability() {
+   489	    this.currentWindow?.restoreUndetectability(), this.dashboardWindow?.restoreUndetectability();
+   490	  }
+   491	  fakeQuit() {
+   492	    this.currentWindow instanceof le ? u.quit() : this.dashboardWindow ? (this.getDashboardWindow().setVisibility(!1), this.sendToWebContents("hide-window", { reason: "native_close_requested" })) : this.sendToWebContents("hide-window", { reason: "native_close_requested" });
+   493	  }
+   494	  sendToWebContents(e, s) {
+   495	    this.currentWindow?.sendToWebContents(e, s), this.dashboardWindow?.sendToWebContents(e, s);
+   496	  }
+   497	}
+   498	const a = new Bt(), ot = {
+   499	  DASHBOARD_ACTIVITY: !1,
+   500	  DEVTOOLS_ENABLED: !1
+   501	};
+   502	function fe() {
+   503	  return !0;
+   504	}
+   505	const nt = "chrome-extension", $t = { "Access-Control-Allow-Origin": "*" }, Re = (t, e = 200) => new Response(t, { status: e, headers: $t }), w = ft();
+   506	w.insert("/os/platform/arch", (t) => t.body(process.arch));
+   507	w.insert("/os/platform/name", (t) => t.body(process.platform));
+   508	w.insert("/app/version", (t) => t.body(u.getVersion()));
+   509	w.insert("/app/quit", (t) => (u.quit(), t.body()));
+   510	w.insert("/app/install_update", (t) => (st(), t.body()));
+   511	w.insert("/app/logout", (t) => (a.sendToWebContents("trigger-logout", null), t.body()));
+   512	w.insert("/app/settings/clear", async (t) => (await ee.defaultSession.clearStorageData(), a.sendToWebContents("trigger-logout", null), t.body()));
+   513	w.insert("/app/listen/start", async (t) => {
+   514	  const e = o.object({ meetingId: o.string().nullable() }), { meetingId: s } = e.parse(await t.request.json());
+   515	  return a.sendToWebContents("start-listening", {
+   516	    meetingId: s
+   517	  }), t.body();
+   518	});
+   519	w.insert("/app/listen/stop", (t) => (a.sendToWebContents("stop-listening", null), t.body()));
+   520	w.insert("/app/listen/resume", async (t) => {
+   521	  const e = o.object({ sessionId: o.string() }), { sessionId: s } = e.parse(await t.request.json());
+   522	  return a.sendToWebContents("resume-session", { sessionId: s }), t.body();
+   523	});
+   524	w.insert("/app/open_personalize_modal", (t) => (a.sendToWebContents("open-dashboard-modal", "personalize"), t.body()));
+   525	w.insert("/app/settings/poll_updater_state", (t) => (a.sendToWebContents("updater-state", tt()), t.body()));
+   526	w.insert("/app/settings/get_auto_launch", (t) => {
+   527	  const e = u.getLoginItemSettings();
+   528	  return t.body(JSON.stringify({ enabled: e.openAtLogin }));
+   529	});
+   530	w.insert("/app/settings/set_auto_launch", async (t) => {
+   531	  const e = o.object({ enabled: o.boolean() }), { enabled: s } = e.parse(await t.request.json());
+   532	  return Je(s), t.body(JSON.stringify({ enabled: s }));
+   533	});
+   534	w.insert("/app/settings/poll_undetectability", (t) => (a.sendToWebContents("invisible-changed", {
+   535	  invisible: fe()
+   536	}), t.body()));
+   537	w.insert("/app/settings/keybinds/begin_recording", (t) => (a.sendToWebContents("broadcast-to-all-windows", {
+   538	  command: "set-keybinds-is-recording",
+   539	  isRecording: !0
+   540	}), t.body()));
+   541	w.insert("/app/settings/keybinds/end_recording", (t) => (a.sendToWebContents("broadcast-to-all-windows", {
+   542	  command: "set-keybinds-is-recording",
+   543	  isRecording: !1
+   544	}), t.body()));
+   545	w.insert("/app/settings/keybinds/poll_accelerators", (t) => (a.sendToWebContents("send-keybindings-to-dashboard", null), t.body()));
+   546	w.insert("/app/settings/keybinds/set_accelerator", async (t) => {
+   547	  const e = o.object({ name: o.string(), accelerator: o.string().nullable() }), { name: s, accelerator: n } = e.parse(await t.request.json());
+   548	  return a.sendToWebContents("set-keybind-accelerator", { name: s, accelerator: n }), t.body();
+   549	});
+   550	w.insert("/app/settings/keybinds/set_disabled", async (t) => {
+   551	  const e = o.object({ name: o.string(), disabled: o.boolean() }), { name: s, disabled: n } = e.parse(await t.request.json());
+   552	  return a.sendToWebContents("set-keybind-disabled", { name: s, disabled: n }), t.body();
+   553	});
+   554	async function Lt(t) {
+   555	  const e = new URL(t.url), s = w.lookup(e.pathname);
+   556	  if (!s)
+   557	    return Re(null, 404);
+   558	  try {
+   559	    return await s({ url: e, request: t, body: Re });
+   560	  } catch (n) {
+   561	    return console.error("Error in handleDashboardIpc:", n), Re(null, 500);
+   562	  }
+   563	}
+   564	[
+   565	  process.env.ELECTRON_RENDERER_URL,
+   566	  "",
+   567	  "https://app.v2.interviewcoder.co",
+   568	  "https://desktop.v2.interviewcoder.co"
+   569	].filter(Boolean);
+   570	const xt = [
+   571	  "https://app.v2.interviewcoder.co",
+   572	  "",
+   573	  "https://desktop.v2.interviewcoder.co"
+   574	].filter(Boolean);
+   575	function Ut(t) {
+   576	  return !0;
+   577	}
+   578	const jt = "x-desktop-access-token", Fe = "X-Trace-Id";
+   579	let ce = null;
+   580	function Ft(t) {
+   581	  ce = t;
+   582	}
+   583	function zt() {
+   584	  ee.defaultSession.webRequest.onBeforeSendHeaders((t, e) => {
+   585	    try {
+   586	      const s = new URL(t.url);
+   587	      ce && Ut(t.referrer) && (s.origin === "https://app.v2.interviewcoder.co" && (t.requestHeaders[jt] = ce), s.origin === "https://platform.v2.interviewcoder.co" && !ze(t.requestHeaders, "Authorization") && (t.requestHeaders.Authorization = `Bearer ${ce}`), s.origin === "https://platform.v2.interviewcoder.co" && !ze(t.requestHeaders, Fe) && (t.requestHeaders[Fe] = gt()));
+   588	    } catch {
+   589	    }
+   590	    e({ requestHeaders: t.requestHeaders });
+   591	  }), ee.defaultSession.webRequest.onBeforeRequest((t, e) => {
+   592	    try {
+   593	      const s = new URL(t.url), n = new URL(t.referrer);
+   594	      if (xt.includes(n.origin) && s.pathname.startsWith("/ipc/")) {
+   595	        const r = s.pathname.slice(5);
+   596	        e({ redirectURL: `${nt}://ipc/${r}${s.search}` });
+   597	        return;
+   598	      }
+   599	    } catch {
+   600	    }
+   601	    e({});
+   602	  });
+   603	}
+
+## main/index.js lines 1030,1057
+  1030	function h(t, e) {
+  1031	  const s = Xt[t], n = (r, i) => {
+  1032	    const l = s.parse(i);
+  1033	    e(r, l);
+  1034	  };
+  1035	  R.on(t, n);
+  1036	}
+  1037	function O(t, e) {
+  1038	  const s = Jt[t].payload, n = (r, i) => {
+  1039	    const l = s.parse(i);
+  1040	    return e(r, l);
+  1041	  };
+  1042	  R.handle(t, n);
+  1043	}
+  1044	async function Qt(t, e, s) {
+  1045	  const n = j.basename(e);
+  1046	  return await new Promise((r, i) => {
+  1047	    let l = "";
+  1048	    t.stdout.on("data", (c) => {
+  1049	      l += c.toString();
+  1050	    }), t.stderr.on("data", (c) => {
+  1051	      $(`[${n}] stderr: ${c}`);
+  1052	    }), t.on("close", (c) => {
+  1053	      c !== 0 ? ($(`[${n}] process exited with code ${c}`), i(new Error(`Process exited with code ${c}`))) : r({ stdout: l });
+  1054	    }), t.on("error", (c) => {
+  1055	      $(`[${n}] process error: ${c}`), i(c);
+  1056	    });
+  1057	  });
+
+## main/index.js lines 1072,1148
+  1072	class ss {
+  1073	  events = new St();
+  1074	  process = null;
+  1075	  isRunning = !1;
+  1076	  options;
+  1077	  constructor(e = {}) {
+  1078	    this.options = e;
+  1079	  }
+  1080	  on(e, s) {
+  1081	    return this.events.on(e, s), this;
+  1082	  }
+  1083	  once(e, s) {
+  1084	    return this.events.once(e, s), this;
+  1085	  }
+  1086	  off(e, s) {
+  1087	    return this.events.off(e, s), this;
+  1088	  }
+  1089	  removeAllListeners(e) {
+  1090	    return this.events.removeAllListeners(e), this;
+  1091	  }
+  1092	  emit(e, ...s) {
+  1093	    return this.events.emit(e, ...s);
+  1094	  }
+  1095	  buildArguments() {
+  1096	    const e = [];
+  1097	    return this.options.sampleRate !== void 0 && e.push("--sample-rate", this.options.sampleRate.toString()), this.options.chunkDurationMs !== void 0 && e.push("--chunk-duration", (this.options.chunkDurationMs / 1e3).toString()), this.options.mute && e.push("--mute"), this.options.includeProcesses && this.options.includeProcesses.length > 0 && e.push("--include-processes", ...this.options.includeProcesses.map((s) => s.toString())), this.options.excludeProcesses && this.options.excludeProcesses.length > 0 && e.push("--exclude-processes", ...this.options.excludeProcesses.map((s) => s.toString())), e;
+  1098	  }
+  1099	  handleStderr(e) {
+  1100	    const n = e.toString("utf8").split(`
+  1101	`).filter((r) => r.trim());
+  1102	    for (const r of n)
+  1103	      try {
+  1104	        const i = JSON.parse(r);
+  1105	        (i.message_type === "debug" || i.message_type === "info") && this.emit("log", i.message_type, i.data), i.message_type === "stream_start" ? this.emit("start") : i.message_type === "stream_stop" ? this.emit("stop") : i.message_type === "error" && this.emit("error", new Error(i.data.message));
+  1106	      } catch (i) {
+  1107	        console.error("Error parsing log message:", i);
+  1108	      }
+  1109	  }
+  1110	  start() {
+  1111	    return new Promise((e, s) => {
+  1112	      if (this.isRunning) {
+  1113	        s(new Error("AudioTee is already running"));
+  1114	        return;
+  1115	      }
+  1116	      const n = ts("audiotee"), r = this.buildArguments();
+  1117	      this.process = vt(n, r), this.process.on("error", (i) => {
+  1118	        this.isRunning = !1, this.emit("error", i), s(i);
+  1119	      }), this.process.on("exit", (i) => {
+  1120	        if (this.isRunning = !1, i !== 0 && i !== null) {
+  1121	          const l = new Error(`AudioTee process exited with code ${i}`);
+  1122	          this.emit("error", l);
+  1123	        }
+  1124	      }), this.process.stdout?.on("data", (i) => {
+  1125	        this.emit("data", { data: i });
+  1126	      }), this.process.stderr?.on("data", (i) => {
+  1127	        this.handleStderr(i);
+  1128	      }), this.isRunning = !0, e();
+  1129	    });
+  1130	  }
+  1131	  stop() {
+  1132	    return new Promise((e) => {
+  1133	      if (!this.isRunning || !this.process) {
+  1134	        e();
+  1135	        return;
+  1136	      }
+  1137	      const s = setTimeout(() => {
+  1138	        this.process && this.isRunning && this.process.kill("SIGKILL");
+  1139	      }, 5e3);
+  1140	      this.process.once("exit", () => {
+  1141	        clearTimeout(s), this.isRunning = !1, this.process = null, e();
+  1142	      }), this.process.kill("SIGTERM");
+  1143	    });
+  1144	  }
+  1145	  isActive() {
+  1146	    return this.isRunning;
+  1147	  }
+  1148	}
+
+## main/index.js lines 1611,1765
+  1611	async function ct(t, e) {
+  1612	  if (A) {
+  1613	    d("[RecallSDK] Already initialized, skipping");
+  1614	    return;
+  1615	  }
+  1616	  if (W) {
+  1617	    d("[RecallSDK] Initialization already in progress, waiting...");
+  1618	    return;
+  1619	  }
+  1620	  W = !0, V = [], d(`[RecallSDK] Starting initialization with apiUrl: ${t}`), d(`[RecallSDK] Platform: ${S ? "Windows" : process.platform}`);
+  1621	  try {
+  1622	    if (d(`[RecallSDK] RecallAiSdk type: ${typeof b}`), d(`[RecallSDK] RecallAiSdk is null/undefined: ${b == null}`), b) {
+  1623	      d(`[RecallSDK] RecallAiSdk.init type: ${typeof b.init}`), d(`[RecallSDK] RecallAiSdk.init exists: ${!!b.init}`);
+  1624	      const i = Object.keys(b);
+  1625	      d(`[RecallSDK] RecallAiSdk available methods (${i.length}): ${i.join(", ")}`), [
+  1626	        "init",
+  1627	        "prepareDesktopAudioRecording",
+  1628	        "startRecording",
+  1629	        "stopRecording"
+  1630	      ].forEach((c) => {
+  1631	        d(`[RecallSDK] Has ${c}: ${typeof b[c]}`);
+  1632	      });
+  1633	    } else {
+  1634	      d("[RecallSDK] ❌ RecallAiSdk is null or undefined!", "error"), d("[RecallSDK] This suggests the package is not correctly installed or imported", "error"), W = !1, G = "RecallAiSdk module is null or undefined";
+  1635	      return;
+  1636	    }
+  1637	  } catch (i) {
+  1638	    d(`[RecallSDK] Error during diagnostics: ${i}`, "error");
+  1639	  }
+  1640	  const s = S ? 3 : 1, n = 2e3;
+  1641	  d(
+  1642	    `[RecallSDK] Configuring initialization for ${S ? "Windows (no permissions needed)" : "macOS/Linux (with permissions)"}`
+  1643	  );
+  1644	  const r = S ? [
+  1645	    // Windows: No permissions needed
+  1646	    {
+  1647	      name: "Windows (no permissions)",
+  1648	      config: {
+  1649	        apiUrl: t,
+  1650	        acquirePermissionsOnStartup: [],
+  1651	        restartOnError: !0
+  1652	      }
+  1653	    }
+  1654	  ] : [
+  1655	    // macOS/Linux: Try with permissions first, then fallback
+  1656	    {
+  1657	      name: "with permissions",
+  1658	      config: {
+  1659	        apiUrl: t,
+  1660	        acquirePermissionsOnStartup: [
+  1661	          "accessibility",
+  1662	          "screen-capture",
+  1663	          "microphone"
+  1664	        ],
+  1665	        restartOnError: !0
+  1666	      }
+  1667	    },
+  1668	    {
+  1669	      name: "without permissions (fallback)",
+  1670	      config: {
+  1671	        apiUrl: t,
+  1672	        acquirePermissionsOnStartup: [],
+  1673	        restartOnError: !0
+  1674	      }
+  1675	    }
+  1676	  ];
+  1677	  for (const { name: i, config: l } of r) {
+  1678	    d(`[RecallSDK] Trying initialization ${i}...`);
+  1679	    for (let c = 1; c <= s; c++)
+  1680	      try {
+  1681	        c > 1 && (d(`[RecallSDK] Retry attempt ${c}/${s} (${i})...`), await Ve(n)), d("[RecallSDK] Calling RecallAiSdk.init()..."), d(`[RecallSDK] Config: ${JSON.stringify(l)}`);
+  1682	        try {
+  1683	          const p = b.init(l);
+  1684	          d(`[RecallSDK] Init promise created: ${typeof p}`), d(`[RecallSDK] Is promise: ${p instanceof Promise}`);
+  1685	          const f = await p;
+  1686	          d(`[RecallSDK] Init result: ${JSON.stringify(f)}`), d("[RecallSDK] RecallAiSdk.init() completed successfully");
+  1687	        } catch (p) {
+  1688	          throw d("[RecallSDK] Exception during init() call", "error"), p;
+  1689	        }
+  1690	        S && (d("[RecallSDK] Windows detected, waiting for SDK to stabilize..."), await Ve(1e3)), A = !0, W = !1, G = null, fs(), d(`[RecallSDK] ✅ Successfully initialized and ready (${i})`), He();
+  1691	        return;
+  1692	      } catch (p) {
+  1693	        const f = p?.message || String(p) || "Unknown error";
+  1694	        G = f, d(
+  1695	          `[RecallSDK] ❌ Failed to initialize ${i} (attempt ${c}/${s})`,
+  1696	          "error"
+  1697	        ), d(`[RecallSDK] Error type: ${p?.constructor?.name || typeof p}`, "error"), d(`[RecallSDK] Error message: ${f}`, "error");
+  1698	        try {
+  1699	          d(`[RecallSDK] Error toString(): ${p}`, "error");
+  1700	        } catch {
+  1701	          d("[RecallSDK] Could not convert error to string", "error");
+  1702	        }
+  1703	        try {
+  1704	          const m = p;
+  1705	          if (m && typeof m == "object") {
+  1706	            const C = Object.keys(m);
+  1707	            d(`[RecallSDK] Error keys: ${C.join(", ")}`, "error"), C.forEach((E) => {
+  1708	              try {
+  1709	                const k = m[E];
+  1710	                d(`[RecallSDK] Error.${E}: ${JSON.stringify(k)}`, "error");
+  1711	              } catch {
+  1712	                d(`[RecallSDK] Error.${E}: [not serializable]`, "error");
+  1713	              }
+  1714	            });
+  1715	          }
+  1716	        } catch {
+  1717	          d("[RecallSDK] Could not inspect error object", "error");
+  1718	        }
+  1719	        p?.stack && d(`[RecallSDK] Stack trace: ${p.stack}`, "error"), c === s && d(`[RecallSDK] All retry attempts failed for ${i}`, "error");
+  1720	      }
+  1721	  }
+  1722	  W = !1, d("[RecallSDK] ❌ All initialization configurations failed", "error"), d(`[RecallSDK] Last error: ${G}`, "error"), d("[RecallSDK] The app will continue but recording features won't work", "error"), d("[RecallSDK] Please check:", "error"), He(), S ? (d("[RecallSDK] Windows-specific troubleshooting:", "error"), d("[RecallSDK]   1. @recallai/desktop-sdk package is installed correctly", "error"), d("[RecallSDK]   2. Native modules are built for your architecture (x64/arm64)", "error"), d("[RecallSDK]   3. Visual C++ Redistributable is installed", "error"), d("[RecallSDK]   4. Windows Defender or antivirus is not blocking the SDK", "error"), d("[RecallSDK]   5. Try running: pnpm install @recallai/desktop-sdk --force", "error")) : (d(
+  1723	    "[RecallSDK]   1. Required permissions (accessibility, screen-capture, microphone)",
+  1724	    "error"
+  1725	  ), d("[RecallSDK]   2. @recallai/desktop-sdk package is installed correctly", "error"), d(
+  1726	    "[RecallSDK]   3. System requirements are met (macOS 14.2+ for audio-only on Apple Silicon)",
+  1727	    "error"
+  1728	  ));
+  1729	}
+  1730	function gs() {
+  1731	  R.handle(
+  1732	    "recall-sdk-create-upload",
+  1733	    async (t, { sessionId: e, provider: s, providerConfig: n, platformApiUrl: r, authToken: i }) => {
+  1734	      try {
+  1735	        const c = `${r || process.env.PLATFORM_API_URL || "http://localhost:8787"}/desktop/recall/create-upload-token`, p = await fetch(c, {
+  1736	          method: "POST",
+  1737	          headers: {
+  1738	            "Content-Type": "application/json",
+  1739	            Authorization: `Bearer ${i}`
+  1740	          },
+  1741	          body: JSON.stringify({
+  1742	            sessionId: e,
+  1743	            provider: s || "deepgram_streaming",
+  1744	            providerConfig: n || {},
+  1745	            enableRealtimeTranscript: !0,
+  1746	            enableVideoFrames: !1
+  1747	          })
+  1748	        });
+  1749	        if (!p.ok) {
+  1750	          const m = await p.text();
+  1751	          throw p.status === 401 ? new Error("Authentication failed. Please ensure you are logged in.") : new Error(`Backend API error: ${p.status} ${m}`);
+  1752	        }
+  1753	        const f = await p.json();
+  1754	        return {
+  1755	          success: !0,
+  1756	          data: {
+  1757	            upload_token: f.uploadToken,
+  1758	            id: f.botId,
+  1759	            config: f.config
+  1760	          }
+  1761	        };
+  1762	      } catch (l) {
+  1763	        return { success: !1, error: l.message };
+  1764	      }
+  1765	    }
+
+## main/index.js lines 1774,1830
+  1774	  }), R.handle("recall-sdk-start-recording", async (t, { windowId: e, uploadToken: s }) => {
+  1775	    try {
+  1776	      if (!A)
+  1777	        throw new Error("Recall SDK not initialized. Please restart the application.");
+  1778	      return await b.startRecording({ windowId: e, uploadToken: s }), { success: !0 };
+  1779	    } catch (n) {
+  1780	      return { success: !1, error: n.message };
+  1781	    }
+  1782	  }), R.handle("recall-sdk-stop-recording", async (t, { windowId: e }) => {
+  1783	    try {
+  1784	      if (!A)
+  1785	        throw new Error("Recall SDK not initialized. Please restart the application.");
+  1786	      return await b.stopRecording({ windowId: e }), { success: !0 };
+  1787	    } catch (s) {
+  1788	      return { success: !1, error: s.message };
+  1789	    }
+  1790	  }), R.handle("recall-sdk-pause-recording", async (t, { windowId: e }) => {
+  1791	    try {
+  1792	      if (!A)
+  1793	        throw new Error("Recall SDK not initialized. Please restart the application.");
+  1794	      return await b.pauseRecording({ windowId: e }), { success: !0 };
+  1795	    } catch (s) {
+  1796	      return { success: !1, error: s.message };
+  1797	    }
+  1798	  }), R.handle("recall-sdk-resume-recording", async (t, { windowId: e }) => {
+  1799	    try {
+  1800	      if (!A)
+  1801	        throw new Error("Recall SDK not initialized. Please restart the application.");
+  1802	      return await b.resumeRecording({ windowId: e }), { success: !0 };
+  1803	    } catch (s) {
+  1804	      return { success: !1, error: s.message };
+  1805	    }
+  1806	  }), R.handle("recall-sdk-upload-recording", async (t, { windowId: e, force: s = !1 }) => {
+  1807	    if (!de && !s)
+  1808	      return {
+  1809	        success: !0,
+  1810	        skipped: !0,
+  1811	        message: "Cloud upload disabled"
+  1812	      };
+  1813	    try {
+  1814	      if (!A)
+  1815	        throw new Error("Recall SDK not initialized. Please restart the application.");
+  1816	      return await b.uploadRecording({ windowId: e }), { success: !0, skipped: !1 };
+  1817	    } catch (n) {
+  1818	      return { success: !1, error: n.message };
+  1819	    }
+  1820	  }), R.handle("recall-sdk-get-cloud-upload-config", async () => ({ enabled: de })), R.handle("recall-sdk-set-cloud-upload-config", async (t, { enabled: e }) => (ps(e), { success: !0, enabled: de })), R.handle("recall-sdk-get-initialization-status", async () => ({
+  1821	    initialized: A,
+  1822	    initializing: W,
+  1823	    error: G,
+  1824	    platform: S ? "windows" : process.platform,
+  1825	    logs: V
+  1826	  })), R.handle("recall-sdk-retry-initialization", async (t, { apiUrl: e }) => {
+  1827	    try {
+  1828	      return d("[RecallSDK] Manual retry initialization requested"), A ? {
+  1829	        success: !0,
+  1830	        error: null,
+
+## main/index.js lines 1851,1925
+  1851	function fs() {
+  1852	  const { BrowserWindow: t } = Ye("electron"), e = (s, n) => {
+  1853	    t.getAllWindows().forEach((r) => {
+  1854	      r.isDestroyed() || r.webContents.send(s, n);
+  1855	    });
+  1856	  };
+  1857	  b.addEventListener("meeting-detected", (s) => {
+  1858	    e("recall-sdk-event", {
+  1859	      type: "meeting-detected",
+  1860	      data: s
+  1861	    });
+  1862	  }), b.addEventListener("recording-ended", (s) => {
+  1863	    e("recall-sdk-event", {
+  1864	      type: "recording-ended",
+  1865	      data: s
+  1866	    });
+  1867	  }), b.addEventListener("upload-progress", (s) => {
+  1868	    e("recall-sdk-event", {
+  1869	      type: "upload-progress",
+  1870	      data: s
+  1871	    });
+  1872	  }), b.addEventListener("sdk-state-change", (s) => {
+  1873	    e("recall-sdk-event", {
+  1874	      type: "sdk-state-change",
+  1875	      data: s
+  1876	    });
+  1877	  }), b.addEventListener("realtime-event", (s) => {
+  1878	    const n = Date.now();
+  1879	    if ((s.event === "transcript.data" || s.event === "transcript.partial_data") && console.log(`[RecallSDK] Received event type: ${s.event}`), s.event === "transcript.provider_data")
+  1880	      try {
+  1881	        const m = s.data.data?.data?.payload?.channel?.alternatives?.[0]?.words?.[0]?.speaker;
+  1882	        m !== void 0 && (X = m);
+  1883	      } catch (r) {
+  1884	        console.warn("[RecallSDK] Failed to extract speaker ID:", r);
+  1885	      }
+  1886	    if (s.event === "transcript.data" || s.event === "transcript.partial_data") {
+  1887	      const r = Date.now(), i = s.data, l = i.data, p = (l?.words || []).map((g) => g.text).join(" "), m = l?.participant?.name, C = i.source, E = m && m !== "Host" && m !== "Guest" ? m : X !== null && X !== -1 ? `Speaker ${X}` : "Unknown Speaker", k = Date.now(), L = k - r, x = s.event === "transcript.partial_data";
+  1888	      console.log(
+  1889	        `[RecallSDK Transcript${x ? " Partial" : ""}] ${E}: "${p}" | Source: ${C} | SpeakerID: ${X} | Received: ${new Date(n).toISOString()} | Processing: ${L}ms`
+  1890	      ), e("recall-sdk-event", {
+  1891	        type: "transcript",
+  1892	        data: {
+  1893	          text: p,
+  1894	          speaker: E,
+  1895	          speakerId: X,
+  1896	          source: C,
+  1897	          timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+  1898	          partialResult: x,
+  1899	          _timing: {
+  1900	            receivedAt: n,
+  1901	            broadcastAt: k,
+  1902	            processingTime: L
+  1903	          }
+  1904	        }
+  1905	      });
+  1906	    }
+  1907	    s.event !== "transcript.data" && s.event !== "transcript.partial_data" && s.event !== "transcript.provider_data" && e("recall-sdk-event", {
+  1908	      type: "realtime-event",
+  1909	      data: s
+  1910	    });
+  1911	  });
+  1912	}
+  1913	function ms() {
+  1914	  A && (b.shutdown(), A = !1);
+  1915	}
+  1916	async function ws() {
+  1917	  try {
+  1918	    return a.setContentProtection(!0), await ys();
+  1919	  } catch (t) {
+  1920	    if (B)
+  1921	      throw Ze(), t;
+  1922	    return await vs();
+  1923	  } finally {
+  1924	    a.restoreUndetectability();
+  1925	  }
+
+## main/index.js lines 1995,2021
+  1995	async function ys() {
+  1996	  if (_e && process.env.PLAYWRIGHT_ENV === "test")
+  1997	    return bs();
+  1998	  const t = a.getTargetDisplay(), e = await pe.getSources({
+  1999	    types: ["screen"],
+  2000	    thumbnailSize: {
+  2001	      width: t.bounds.width,
+  2002	      height: t.bounds.height
+  2003	    }
+  2004	  }), s = e.find((r) => r.display_id === t.id.toString()) ?? e[0];
+  2005	  if (!s) {
+  2006	    const r = {
+  2007	      display: { id: t.id },
+  2008	      sources: e.map((i) => ({ id: i.id, name: i.name }))
+  2009	    };
+  2010	    throw new Error(
+  2011	      `Unable to capture screenshot: no display source found; details: ${JSON.stringify(r)}`
+  2012	    );
+  2013	  }
+  2014	  return { data: s.thumbnail.toPNG(), contentType: "image/png" };
+  2015	}
+  2016	async function vs() {
+  2017	  return {
+  2018	    // this will just use the default display
+  2019	    data: await Dt({ format: "png" }),
+  2020	    contentType: "image/png"
+  2021	  };
+
+## main/index.js lines 2058,2182
+  2058	function Ts() {
+  2059	  h("quit-app", () => {
+  2060	    u.quit();
+  2061	  }), h("restart-window", () => {
+  2062	    a.createOrRecreateWindows();
+  2063	  }), h("check-for-update", () => {
+  2064	    H.checkForUpdates();
+  2065	  }), h("install-update", () => {
+  2066	    st();
+  2067	  }), h("get-updater-state", () => {
+  2068	    a.sendToWebContents("updater-state", tt());
+  2069	  }), O("request-has-onboarded", async () => ({ hasOnboarded: Qe() })), O("check-mic-permission", async () => {
+  2070	    if (_e)
+  2071	      return !0;
+  2072	    try {
+  2073	      return Se.getMediaAccessStatus("microphone") === "granted";
+  2074	    } catch (t) {
+  2075	      return $("Media permission error:", t), !1;
+  2076	    }
+  2077	  }), O("request-media-permission", async (t, e) => {
+  2078	    if (process.platform === "darwin") {
+  2079	      if (e === "screen")
+  2080	        try {
+  2081	          return await pe.getSources({ types: ["screen"] }), !0;
+  2082	        } catch {
+  2083	          return !1;
+  2084	        }
+  2085	      try {
+  2086	        const s = Se.getMediaAccessStatus(e);
+  2087	        return s === "not-determined" ? await Se.askForMediaAccess(e) : s === "granted";
+  2088	      } catch (s) {
+  2089	        return $("Media permission error:", s), !1;
+  2090	      }
+  2091	    }
+  2092	    return !0;
+  2093	  }), h("finish-onboarding", () => {
+  2094	    _t();
+  2095	  }), h("reset-onboarding", () => {
+  2096	    Ze();
+  2097	  }), O("get-auto-launch-enabled", async () => ({ enabled: u.getLoginItemSettings().openAtLogin })), O("set-platform-access-token", (t, { accessToken: e }) => {
+  2098	    Ft(e);
+  2099	  }), O("set-recall-api-key", (t, { apiKey: e }) => {
+  2100	    e && us();
+  2101	  }), h("set-auto-launch-enabled", (t, { enabled: e }) => {
+  2102	    Je(e);
+  2103	  }), h("register-global-shortcut", (t, { accelerator: e }) => {
+  2104	    Ss(e);
+  2105	  }), h("unregister-global-shortcut", (t, { accelerator: e }) => {
+  2106	    Ds(e);
+  2107	  }), h("enable-dev-shortcuts", () => {
+  2108	    Rs();
+  2109	  }), h("reset-global-shortcuts", () => {
+  2110	    As();
+  2111	  }), h("set-ignore-mouse-events", (t, { ignore: e }) => {
+  2112	    a.getCurrentWindow().isIpcEventFromWindow(t) && a.getCurrentWindow().setIgnoreMouseEvents(e);
+  2113	  }), h("resize-window", (t, { width: e, height: s, duration: n }) => {
+  2114	    a.getCurrentWindow().resizeWindow(e, s, n);
+  2115	  }), h("focus-window", () => {
+  2116	    a.getCurrentWindow().focus();
+  2117	  }), h("unfocus-window", () => {
+  2118	    a.getCurrentWindow().blur();
+  2119	  }), O("capture-screenshot", async () => {
+  2120	    const { contentType: t, data: e } = await ws();
+  2121	    return { contentType: t, data: e };
+  2122	  }), O("get-login-protocol-state", () => ({ state: ks })), h("get-available-displays", () => {
+  2123	    const t = it();
+  2124	    a.sendToWebContents("available-displays", { displays: t });
+  2125	  }), h("get-invisible", () => {
+  2126	    a.sendToWebContents("invisible-changed", {
+  2127	      invisible: fe()
+  2128	    });
+  2129	  }), h(
+  2130	    "move-window-to-display",
+  2131	    (t, { displayId: e, preservePosition: s, cursorScreenX: n, cursorScreenY: r }) => {
+  2132	      const i = at(e);
+  2133	      i && a.setTargetDisplay(i, {
+  2134	        preservePosition: s,
+  2135	        cursorScreenX: n,
+  2136	        cursorScreenY: r
+  2137	      });
+  2138	    }
+  2139	  ), h("show-display-overlays", () => {
+  2140	    ae.showOverlays();
+  2141	  }), h("hide-display-overlays", () => {
+  2142	    console.log("[IPC] hide-display-overlays called"), ae.hideOverlays();
+  2143	  }), h("highlight-display", (t, { displayId: e }) => {
+  2144	    ae.highlightDisplay(e);
+  2145	  }), h("unhighlight-display", (t, { displayId: e }) => {
+  2146	    ae.unhighlightDisplay(e);
+  2147	  }), h("login-user", (t, { userEmail: e }) => {
+  2148	    Ct(e);
+  2149	  }), h("logout-user", (t) => {
+  2150	    Et();
+  2151	  }), h("broadcast-to-all-windows", (t, e) => {
+  2152	    a.sendToWebContents("broadcast-to-all-windows", e);
+  2153	  }), h("set-dashboard-visibility", (t, { visible: e }) => {
+  2154	    if (!e) {
+  2155	      a.getDashboardWindow().setVisibility(!1);
+  2156	      return;
+  2157	    }
+  2158	    (Ht().page === "login" || ot.DASHBOARD_ACTIVITY) && a.getDashboardWindow().setVisibility(!0);
+  2159	  }), h("set-dashboard-state", (t, { state: e }) => {
+  2160	    Vt(e);
+  2161	  }), h("get-dashboard-window-state", (t) => {
+  2162	    rt();
+  2163	  }), h("maximize-dashboard-window", () => {
+  2164	    a.getDashboardWindow().maximize();
+  2165	  }), h("minimize-dashboard-window", () => {
+  2166	    a.getDashboardWindow().minimize();
+  2167	  }), B && (O("mac-check-macos-version", async () => {
+  2168	    const { isSupported: t } = await Zt();
+  2169	    return { isSupported: t };
+  2170	  }), h("mac-open-system-settings", (t, { section: e }) => {
+  2171	    e === "privacy > microphone" && Ae.openExternal(
+  2172	      "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone"
+  2173	    ), e === "privacy > screen-recording" && Ae.openExternal(
+  2174	      "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture"
+  2175	    );
+  2176	  }), h("mac-enable-native-recorder", (t, { sampleRate: e }) => {
+  2177	    os(a.getCurrentWindow(), e);
+  2178	  }), h("mac-disable-native-recorder", () => {
+  2179	    Me();
+  2180	  }), h("mac-set-mic-monitor-enabled", (t, { enabled: e, version: s }) => {
+  2181	    e ? ds(s) : lt();
+  2182	  }));
+
+## main/index.js lines 2222,2241
+  2222	  u.on("second-instance", (t, e) => {
+  2223	    console.log("[DeepLink] Second instance detected, commandLine:", e), a.sendToWebContents("app-focus", { showDashboard: !0 }), Ke(e);
+  2224	  }), u.on("open-url", (t, e) => {
+  2225	    console.log("[DeepLink] Received open-url event:", e), _s(e);
+  2226	  }), Ke(process.argv);
+  2227	}
+  2228	function Os() {
+  2229	  console.log("[DeepLink] Completing protocol setup (after ready)"), xe.on("request", (t) => {
+  2230	    console.log("[DeepLink] Received request via electronAppUniversalProtocolClient:", t), a.handleDockIcon(), a.sendToWebContents("unhide-window", { reason: "deep_link" });
+  2231	    const e = a.getCurrentWindow();
+  2232	    e instanceof le && e.show(), ke(t);
+  2233	  }), xe.initialize({
+  2234	    protocol: U,
+  2235	    mode: v ? "development" : "production"
+  2236	  }), u.on("activate", () => {
+  2237	    a.handleDockIcon(), a.sendToWebContents("app-focus", { showDashboard: !0 });
+  2238	  }), B && Ms(), a.getDashboardWindow().onceDidFinishLoad(() => {
+  2239	    Z && (console.log("[DeepLink] Processing delayed deeplink:", Z), ke(Z), Z = null);
+  2240	  }), Ce.handle(nt, Lt);
+  2241	}
+
+## main/index.js lines 2326,2408
+  2326	function Ws() {
+  2327	  ee.defaultSession.setDisplayMediaRequestHandler(
+  2328	    (t, e) => {
+  2329	      pe.getSources({ types: ["screen"] }).then((s) => {
+  2330	        const n = D.getAllDisplays();
+  2331	        for (const l of n)
+  2332	          if (l.internal) {
+  2333	            const c = s.find(
+  2334	              (p) => p.display_id === String(l.id)
+  2335	            );
+  2336	            if (c) {
+  2337	              e({ video: c, audio: "loopback" });
+  2338	              return;
+  2339	            }
+  2340	          }
+  2341	        const r = D.getPrimaryDisplay(), i = s.find(
+  2342	          (l) => l.display_id === String(r.id)
+  2343	        );
+  2344	        if (i) {
+  2345	          e({ video: i, audio: "loopback" });
+  2346	          return;
+  2347	        }
+  2348	        e({ video: s[0], audio: "loopback" });
+  2349	      }).catch(() => {
+  2350	        e({});
+  2351	      });
+  2352	    },
+  2353	    // always use our custom handler
+  2354	    { useSystemPicker: !1 }
+  2355	  );
+  2356	}
+  2357	v && (u.commandLine.appendSwitch("allow-insecure-localhost"), u.on("certificate-error", (t, e, s, n, r, i) => {
+  2358	  if (s.startsWith(new URL("https://desktop.v2.interviewcoder.co").origin)) {
+  2359	    t.preventDefault(), i(!0);
+  2360	    return;
+  2361	  }
+  2362	  i(!1);
+  2363	}));
+  2364	B && u.dock?.hide();
+  2365	if (process.env.PLAYWRIGHT_ENV === "test") {
+  2366	  _e && (u.commandLine.appendSwitch("no-sandbox"), u.commandLine.appendSwitch("disable-dev-shm-usage"), u.commandLine.appendSwitch("disable-gpu")), u.commandLine.appendSwitch("use-fake-ui-for-media-stream"), u.commandLine.appendSwitch("use-fake-device-for-media-stream");
+  2367	  const t = process.env.TEST_AUDIO_FILE;
+  2368	  t && u.commandLine.appendSwitch("use-file-for-fake-audio-capture", t);
+  2369	}
+  2370	console.log("[Main] Setting up protocol handlers (before ready)...");
+  2371	Is();
+  2372	if (S) {
+  2373	  console.log("[Main] Requesting single instance lock for Windows...");
+  2374	  const t = u.requestSingleInstanceLock();
+  2375	  console.log("[Main] Got single instance lock:", t), t || (console.log("[Main] Another instance is already running, quitting..."), u.quit(), process.exit(0)), console.log("[Main] Single instance lock acquired successfully");
+  2376	}
+  2377	const Bs = !v || process.env.PLAYWRIGHT_ENV === "test";
+  2378	Bs && Ce.registerSchemesAsPrivileged([
+  2379	  {
+  2380	    scheme: "app",
+  2381	    privileges: {
+  2382	      standard: !0,
+  2383	      secure: !0,
+  2384	      supportFetchAPI: !0
+  2385	    }
+  2386	  }
+  2387	]);
+  2388	async function $s() {
+  2389	  if (console.log("[Main] Starting application..."), S && u.disableHardwareAcceleration(), await u.whenReady(), console.log("[Main] Checking version support..."), !await Ps()) {
+  2390	    console.log("[Main] Version not supported, exiting..."), u.quit();
+  2391	    return;
+  2392	  }
+  2393	  console.log("[Main] Version supported ✓"), v && ee.defaultSession.setCertificateVerifyProc((e, s) => {
+  2394	    const { hostname: n } = e;
+  2395	    if (!n) {
+  2396	      s(-3);
+  2397	      return;
+  2398	    }
+  2399	    if (n === new URL("https://desktop.v2.interviewcoder.co").hostname) {
+  2400	      s(0);
+  2401	      return;
+  2402	    }
+  2403	    s(-3);
+  2404	  }), ht.setAppUserModelId(`com.${Xe}`), console.log("[Main] Setting up application..."), Ns(), Ws(), Es(), zt(), console.log("[Main] Creating windows..."), a.createOrRecreateWindows(), console.log("[Main] Windows created ✓"), console.log("[Main] Setting up handlers..."), Ts(), Pt(), Cs(), Os(), console.log("[Main] 🎬 Initializing Recall.ai SDK..."), gs();
+  2405	  try {
+  2406	    await ct("https://us-west-2.recall.ai"), console.log("[Main] ✅ Recall.ai SDK ready");
+  2407	  } catch (e) {
+  2408	    console.warn("[Main] ⚠️ Recall.ai SDK initialization failed"), console.warn("[Main] Error:", e), console.warn("[Main] Will continue without Recall SDK (V1 audio-only mode will work)");

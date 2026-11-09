@@ -1,0 +1,342 @@
+# Recall desktop SDK source excerpts (exact line numbers)
+
+## @recallai/desktop-sdk/index.js lines 55,77
+    55	// HACK: This is needed because of https://github.com/electron/electron/issues/6262
+    56	// Search for the unpacked directory first, since fs.existsSync actually reports
+    57	// the "virtual" files in the .asar as being present
+    58	let exe_paths = [];
+    59	if (process.platform === "darwin") {
+    60	    exe_paths.push(path.join(__dirname, "desktop_sdk_macos_exe").replace('app.asar', 'app.asar.unpacked'));
+    61	    exe_paths.push(path.join(__dirname, "desktop_sdk_macos_exe"));
+    62	}
+    63	else if (process.platform === "win32") {
+    64	    exe_paths.push(path.join(__dirname, "agent-windows.exe").replace('app.asar', 'app.asar.unpacked'));
+    65	    exe_paths.push(path.join(__dirname, "agent-windows.exe"));
+    66	}
+    67	let proc;
+    68	let rlData;
+    69	let rlStdout;
+    70	let rlStderr;
+    71	const listeners = [];
+    72	const lastErrorOut = [];
+    73	const pendingCommands = {};
+    74	let lastOptions;
+    75	let remainingAutomaticRestarts = 10;
+    76	let unexpectedShutdown = false;
+    77	let logBuffer = [];
+
+## @recallai/desktop-sdk/index.js lines 190,227
+   190	function startProcess() {
+   191	    if (proc && proc.exitCode === null) {
+   192	        logError("Desktop SDK: Trying to start process while it is already started");
+   193	        return;
+   194	    }
+   195	    const exe_path = exe_paths.find(fs.existsSync);
+   196	    if (!exe_path) {
+   197	        logError(`Desktop SDK: Couldn't launch! This is likely an issue with the build tool you're using.`);
+   198	        for (const exe_path of exe_paths) {
+   199	            logError("Tried:", exe_path);
+   200	        }
+   201	        return;
+   202	    }
+   203	    let envExtra = {};
+   204	    if (process.platform === "win32" && process.env.GLOBAL_GST_RECALL !== "1") {
+   205	        envExtra["GST_PLUGIN_PATH"] = path.join(path.dirname(exe_path), "gstreamer-1.0");
+   206	    }
+   207	    const gst_dump_dir = process.env.RECALLAI_DESKTOP_SDK_DEV ? path.join(os.tmpdir(), "gst.nocommit") : os.tmpdir();
+   208	    if (!fs.existsSync(gst_dump_dir)) {
+   209	        try {
+   210	            fs.mkdirSync(gst_dump_dir);
+   211	        }
+   212	        catch (e) {
+   213	            logError("Failed to create gst dump dir:", String(e));
+   214	        }
+   215	    }
+   216	    proc = (0, child_process_1.spawn)(exe_path, {
+   217	        stdio: (process.platform === "darwin" ? ["pipe", "pipe", "pipe", "pipe"] : "pipe"),
+   218	        env: {
+   219	            GST_DEBUG: "2",
+   220	            GST_DEBUG_DUMP_DOT_DIR: gst_dump_dir,
+   221	            RUST_BACKTRACE: "1",
+   222	            // "DYLD_INSERT_LIBRARIES":"/opt/homebrew/lib/libjemalloc.dylib",
+   223	            // "MALLOC_CONF":"prof:true,prof_active:true,prof_prefix:jeprof",
+   224	            // "DYLD_FORCE_FLAT_NAMESPACE":"1",
+   225	            ...envExtra,
+   226	        }
+   227	    });
+
+## @recallai/desktop-sdk/index.js lines 236,331
+   236	    let onLine = (line) => {
+   237	        if (line?.startsWith("recall_ai_command|")) {
+   238	            try {
+   239	                const data = JSON.parse(line.substring(18));
+   240	                switch (data.type) {
+   241	                    case "event":
+   242	                        if (data.event) {
+   243	                            const event = JSON.parse(data.event);
+   244	                            emitEvent(event.type, event.payload);
+   245	                        }
+   246	                        break;
+   247	                    case "response":
+   248	                        const pendingCommand = pendingCommands[data.commandId];
+   249	                        if (pendingCommand) {
+   250	                            if (data.status === "success") {
+   251	                                pendingCommand.resolve(data.result);
+   252	                            }
+   253	                            else {
+   254	                                pendingCommand.reject(new Error(data.result));
+   255	                            }
+   256	                            delete pendingCommands[data.commandId];
+   257	                        }
+   258	                        break;
+   259	                }
+   260	            }
+   261	            catch (err) {
+   262	                logError("Desktop SDK: Failed to parse incoming data:", String(err));
+   263	            }
+   264	        }
+   265	        else {
+   266	            if (process.env.RECALLAI_DESKTOP_SDK_DEV) {
+   267	                console.log(line);
+   268	            }
+   269	        }
+   270	    };
+   271	    rlData?.on('line', onLine);
+   272	    rlStdout.on('line', onLine);
+   273	    rlStderr.on('line', (line) => {
+   274	        appendError(line);
+   275	        if (process.env.RECALLAI_DESKTOP_SDK_DEV) {
+   276	            console.error(line);
+   277	        }
+   278	    });
+   279	    proc.on('error', (error) => {
+   280	        flushPendingCommands(new Error(`Process error: ${error.message}`));
+   281	        emitEvent('error', {
+   282	            type: 'process',
+   283	            message: `The Desktop SDK server process has failed to start or exited improperly.`
+   284	        });
+   285	        logError(`Desktop SDK: Process error: ${error.message}`);
+   286	    });
+   287	    proc.on('close', async (code, signal) => {
+   288	        flushPendingCommands(new Error(`Process exited with code ${code}, signal ${signal}.`));
+   289	        emitEvent('shutdown', { code: code ?? 0, signal: signal ?? '' });
+   290	        rlStdout?.close();
+   291	        rlStderr?.close();
+   292	        rlStdout = null;
+   293	        rlStderr = null;
+   294	        if (code === 0 || signal === 'SIGINT') {
+   295	            return;
+   296	        }
+   297	        logError(`Desktop SDK: Process exited with code ${code}, signal ${signal}`);
+   298	        emitEvent('error', {
+   299	            type: 'process',
+   300	            message: "The Desktop SDK server process exited unexpectedly."
+   301	        });
+   302	        proc = null;
+   303	        unexpectedShutdown = true;
+   304	        if (lastOptions.restartOnError && remainingAutomaticRestarts > 0) {
+   305	            remainingAutomaticRestarts--;
+   306	            logError(`Automatically restarting Desktop SDK due to unexpected exit! Automatic restarts left: ${remainingAutomaticRestarts}`);
+   307	            logError(`Last error output from Desktop SDK:\n${lastErrorOut.join("\n")}`);
+   308	            lastErrorOut.length = 0;
+   309	            doInit(lastOptions);
+   310	        }
+   311	    });
+   312	}
+   313	function sendCommand(command, params = {}) {
+   314	    return new Promise((resolve, reject) => {
+   315	        if (!proc || !proc.stdin) {
+   316	            reject(new Error("The Desktop SDK is not started; call `init` to start it."));
+   317	            return;
+   318	        }
+   319	        const commandId = (0, uuid_1.v4)();
+   320	        pendingCommands[commandId] = { resolve, reject };
+   321	        const payload = {
+   322	            command,
+   323	            commandId,
+   324	            params
+   325	        };
+   326	        const payloadStr = JSON.stringify(payload);
+   327	        proc.stdin.write(payloadStr + "\n");
+   328	        if (command !== "log") {
+   329	            doLog("info", ["Sending command: " + payloadStr], false);
+   330	        }
+   331	    });
+
+## @recallai/desktop-sdk/index.js lines 333,389
+   333	async function doInit(options) {
+   334	    startProcess();
+   335	    if (unexpectedShutdown) {
+   336	        logError("Desktop SDK: Recovered from unexpected shutdown");
+   337	        unexpectedShutdown = false;
+   338	    }
+   339	    await sendCommand("init", { config: JSON.stringify(options) });
+   340	    flushLogBuffer();
+   341	}
+   342	async function init(options) {
+   343	    if (process.platform !== "darwin" && process.platform !== "win32") {
+   344	        throw new Error(`Platform ${process.platform} is not supported by Desktop SDK`);
+   345	    }
+   346	    const { api_url, apiUrl, dev } = options;
+   347	    options.api_url = api_url ?? apiUrl ?? "https://api.recall.ai";
+   348	    if (!dev && (!options.api_url || !options.api_url.startsWith("https"))) {
+   349	        throw new Error(`apiUrl must be an https url, got: ${options.api_url}`);
+   350	    }
+   351	    if (options.restartOnError === undefined) {
+   352	        options.restartOnError = true;
+   353	    }
+   354	    lastOptions = options;
+   355	    await doInit(options);
+   356	    return null;
+   357	}
+   358	async function shutdown() {
+   359	    const result = await sendCommand("shutdown");
+   360	    if (proc) {
+   361	        const currentProc = proc;
+   362	        setTimeout(() => {
+   363	            if (!currentProc.killed) {
+   364	                currentProc.kill();
+   365	            }
+   366	        }, 5000);
+   367	    }
+   368	    return result;
+   369	}
+   370	function dumpAXTree(procName) {
+   371	    return sendCommand("dumpAXTree", { procName });
+   372	}
+   373	function startRecording(config) {
+   374	    return sendCommand("startRecording", { config: JSON.stringify(config) });
+   375	}
+   376	function stopRecording({ windowId }) {
+   377	    return sendCommand("stopRecording", { windowId });
+   378	}
+   379	function pauseRecording({ windowId }) {
+   380	    return sendCommand("pauseRecording", { windowId });
+   381	}
+   382	function resumeRecording({ windowId }) {
+   383	    return sendCommand("resumeRecording", { windowId });
+   384	}
+   385	function uploadRecording({ windowId }) {
+   386	    return sendCommand("uploadRecording", { windowId });
+   387	}
+   388	function prepareDesktopAudioRecording() {
+   389	    return sendCommand("prepareDesktopAudioRecording");
+
+## @recallai/desktop-sdk/package.json
+     1	{
+     2	  "name": "@recallai/desktop-sdk",
+     3	  "version": "0.0.0-nightly.20251105T155527-5065e43cbda13082873e8ca3a6f205937ac34e4e",
+     4	  "description": "Recall Desktop SDK",
+     5	  "main": "./index.js",
+     6	  "types": "./index.d.ts",
+     7	  "dependencies": {
+     8	    "tar": "^7.4.3",
+     9	    "uuid": "^11.1.0"
+    10	  },
+    11	  "engines": {
+    12	    "node": ">=18.0.0"
+    13	  },
+    14	  "devDependencies": {
+    15	    "@types/node": "^24.2.0",
+    16	    "typescript": "^5.3.3"
+    17	  },
+    18	  "commit_sha": "5065e43cbda13082873e8ca3a6f205937ac34e4e"
+    19	}
+
+## @recallai/desktop-sdk/setup.js
+     1	const fs = require("fs");
+     2	const path = require("path");
+     3	const tar = require("tar");
+     4	const { Readable } = require("stream");
+     5	const { finished } = require("stream/promises");
+     6
+     7	const nativeTarPathMacOS = path.join(__dirname, "desktop_sdk_macos.tar");
+     8	const nativeTarPathWin32 = path.join(__dirname, "desktop_sdk_win32.tar");
+     9	const nativeUrlBase = "https://recallai-desktop-sdk-releases.s3.us-east-1.amazonaws.com";
+    10
+    11	async function downloadFile(url, path) {
+    12	    const stream = fs.createWriteStream(path);
+    13	    const { body } = await fetch(url);
+    14	    await finished(Readable.fromWeb(body).pipe(stream));
+    15	}
+    16
+    17	async function cleanup() {
+    18	    for (const platform of [nativeTarPathMacOS, nativeTarPathWin32]) {
+    19	        try {
+    20	            fs.unlinkSync(platform);
+    21	        } catch (e) {
+    22	            // Nothing.
+    23	        }
+    24	    }
+    25	}
+    26
+    27	async function setupMacOS(version) {
+    28	    await downloadFile(`${nativeUrlBase}/${version}/desktop_sdk_macos.tar`, nativeTarPathMacOS);
+    29
+    30	    if (!fs.existsSync(nativeTarPathMacOS)) {
+    31	        console.error("Missing native platform tar file");
+    32	        process.exit(1);
+    33	    }
+    34
+    35	    const frameworksDir = path.join(__dirname, "Frameworks");
+    36
+    37	    if (fs.existsSync(frameworksDir)) {
+    38	        fs.rmSync(frameworksDir, { recursive: true, force: true });
+    39	    }
+    40
+    41	    try {
+    42	        await tar.extract({ file: nativeTarPathMacOS, cwd: __dirname });
+    43	    } catch (e) {
+    44	        console.error("Error extracting tar file:", e);
+    45	        process.exit(1);
+    46	    }
+    47
+    48	    await cleanup();
+    49	}
+    50
+    51	async function setupWin32(version) {
+    52	    await downloadFile(`${nativeUrlBase}/${version}/desktop_sdk_win32.tar`, nativeTarPathWin32);
+    53
+    54	    if (!fs.existsSync(nativeTarPathWin32)) {
+    55	        console.error("Missing native platform tar file");
+    56	        process.exit(1);
+    57	    }
+    58
+    59	    const gstreamerDir = path.join(__dirname, "gstreamer-1.0");
+    60
+    61	    if (fs.existsSync(gstreamerDir)) {
+    62	        fs.rmSync(gstreamerDir, { recursive: true, force: true });
+    63	    }
+    64
+    65	    try {
+    66	        await tar.extract({ file: nativeTarPathWin32, cwd: __dirname });
+    67	    } catch (e) {
+    68	        console.error("Error extracting tar file:", e);
+    69	        process.exit(1);
+    70	    }
+    71
+    72	    await cleanup();
+    73	}
+    74
+    75	async function setup() {
+    76	    const package = fs.readFileSync("./package.json");
+    77	    const packageJson = JSON.parse(package);
+    78	    const commit_sha = packageJson["commit_sha"];
+    79
+    80	    console.log(`Downloading native sdk for id: ${commit_sha}, platform: ${process.platform}`);
+    81
+    82	    if (process.platform === "darwin") {
+    83	        await setupMacOS(commit_sha);
+    84	    } else if (process.platform === "win32") {
+    85	        await setupWin32(commit_sha);
+    86	    } else {
+    87	        console.warn("Unsupported platform, Desktop SDK will not be available.");
+    88	        await cleanup();
+    89	    }
+    90	}
+    91
+    92	if (process.env.RECALL_LOCAL_BUILD) {
+    93	    console.log("Doing local build, skipping platform native install");
+    94	} else {
+    95	    setup();
+    96	}

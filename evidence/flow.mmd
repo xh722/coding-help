@@ -1,0 +1,13 @@
+flowchart TD
+    A[NSIS installer] --> B[embedded app-64.7z]
+    B --> C[Electron executable]
+    B --> D[app.asar]
+    D --> E[main process]
+    D --> F[preload IPC]
+    D --> G[renderer bundles]
+    B --> H[unpacked Recall SDK]
+    H --> I[agent-windows.exe]
+    I --> J[libbot_desktop_rs.dll]
+    I --> K[screen/audio/window capture]
+    E --> L[upload token API]
+    E --> I
