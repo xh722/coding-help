@@ -58,9 +58,11 @@ function createIpcRouter(handlers = {}) {
   return {
     async dispatch(name, payload = {}, context = {}) {
       if (!schemas[name]) throw new IpcError('UNKNOWN_COMMAND', 'Unknown command');
-      if (context.source !== 'renderer' ||
-          (typeof context.windowId !== 'string' && typeof context.windowId !== 'number') ||
-          (typeof context.windowId === 'string' && context.windowId.trim() === '')) {
+      const safeContext = context && typeof context === 'object' ? context : {};
+      if (safeContext.source !== 'renderer' ||
+          (typeof safeContext.windowId !== 'string' && typeof safeContext.windowId !== 'number') ||
+          (typeof safeContext.windowId === 'string' && safeContext.windowId.trim() === '') ||
+          (typeof safeContext.windowId === 'number' && !Number.isFinite(safeContext.windowId))) {
         return { ok: false, error: { code: 'INVALID_CONTEXT', message: 'Invalid renderer context' } };
       }
       const validation = validateCommand(name, payload);
@@ -68,7 +70,7 @@ function createIpcRouter(handlers = {}) {
       const handler = handlers[name];
       if (typeof handler !== 'function') return { ok: false, error: { code: 'NOT_IMPLEMENTED', message: 'Command is unavailable' } };
       try {
-        const result = await handler(validation.value, { source: context.source, windowId: context.windowId });
+        const result = await handler(validation.value, { source: safeContext.source, windowId: safeContext.windowId });
         if (result && result.ok === false) {
           const code = typeof result.error?.code === 'string' ? result.error.code : 'HANDLER_ERROR';
           const rawMessage = typeof result.error?.message === 'string' ? result.error.message : '';

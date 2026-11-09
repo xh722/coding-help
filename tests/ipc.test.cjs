@@ -44,7 +44,7 @@ test('dispatch validates and passes a safe context to the handler', async () => 
 
 test('dispatch rejects missing or invalid renderer context', async () => {
   const router = createIpcRouter({ 'app.get-version': () => 'ok' });
-  for (const context of [{}, { source: 'main', windowId: 1 }, { source: 'renderer', windowId: '' }]) {
+  for (const context of [null, {}, { source: 'main', windowId: 1 }, { source: 'renderer', windowId: '' }, { source: 'renderer', windowId: NaN }, { source: 'renderer', windowId: Infinity }]) {
     const result = await router.dispatch('app.get-version', {}, context);
     assert.deepEqual(result, { ok: false, error: { code: 'INVALID_CONTEXT', message: 'Invalid renderer context' } });
   }

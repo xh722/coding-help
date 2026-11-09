@@ -26,3 +26,7 @@ node --test tests/ipc.test.cjs       passed
 npm test                             4 test files passed
 npm run check                        passed
 ```
+
+## Context validation follow-up
+
+Normalized null and non-object contexts before property access and rejected non-finite numeric window IDs (`NaN`, `Infinity`) as `INVALID_CONTEXT`.
