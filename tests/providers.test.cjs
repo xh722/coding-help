@@ -92,6 +92,7 @@ test('suggestions are local and derive from the final transcript', () => {
     source: 'local',
   });
   assert.deepEqual(provider.suggest(''), { text: '', source: 'local' });
+  assert.deepEqual(provider.suggest('  \n\t '), { text: '', source: 'local' });
   assert.notEqual(provider.suggest('Explain closures.').text, provider.suggest('Explain promises.').text);
 });
 

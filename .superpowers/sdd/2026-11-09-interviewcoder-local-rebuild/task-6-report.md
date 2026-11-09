@@ -19,5 +19,6 @@ Review follow-up:
 - Pause before the first emission is covered and resumes with the partial then final sequence.
 - Suggestions include normalized input text and tests verify distinct inputs produce distinct output.
 - Capture tests verify display delegation, display ID forwarding, and exact injected screenshot results.
+- Whitespace-only suggestion input is normalized to empty and returns no suggestion.
 
 No network calls or original application binaries were used.
