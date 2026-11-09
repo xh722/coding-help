@@ -13,4 +13,11 @@ Verification:
 - `npm run check`: PASS.
 - `npm test`: 5 test files passed; existing `tests/local-api.test.cjs` failed without assertion details and is unrelated to Task 6 changes.
 
+Review follow-up:
+
+- Transcript events now use `transcript.partial` and `transcript.final`, include injected-clock timestamps, and use deterministic 10 ms partial/final scheduling.
+- Pause before the first emission is covered and resumes with the partial then final sequence.
+- Suggestions include normalized input text and tests verify distinct inputs produce distinct output.
+- Capture tests verify display delegation, display ID forwarding, and exact injected screenshot results.
+
 No network calls or original application binaries were used.

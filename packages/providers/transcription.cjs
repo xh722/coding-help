@@ -7,14 +7,16 @@ function createLocalTranscriptionProvider({ clock = globalThis } = {}) {
   let emit = null;
   let state = 'idle';
   let pendingTimer = null;
+  let partialEmitted = false;
+  const now = typeof clock.now === 'function' ? clock.now.bind(clock) : Date.now;
 
   const scheduleFinal = () => {
     pendingTimer = setTimeout(() => {
       pendingTimer = null;
       if (state !== 'active' || !emit) return;
-      emit({ type: 'final', text: FINAL_TEXT });
+      emit({ type: 'transcript.final', text: FINAL_TEXT, timestamp: now() });
       state = 'completed';
-    }, 0);
+    }, 10);
   };
 
   return {
@@ -25,9 +27,10 @@ function createLocalTranscriptionProvider({ clock = globalThis } = {}) {
       pendingTimer = setTimeout(() => {
         pendingTimer = null;
         if (state !== 'active' || !emit) return;
-        emit({ type: 'partial', text: PARTIAL_TEXT });
+        partialEmitted = true;
+        emit({ type: 'transcript.partial', text: PARTIAL_TEXT, timestamp: now() });
         scheduleFinal();
-      }, 0);
+      }, 10);
     },
     pause() {
       if (state !== 'active') return;
@@ -40,7 +43,16 @@ function createLocalTranscriptionProvider({ clock = globalThis } = {}) {
     resume() {
       if (state !== 'paused') return;
       state = 'active';
-      scheduleFinal();
+      if (partialEmitted) scheduleFinal();
+      else {
+        pendingTimer = setTimeout(() => {
+          pendingTimer = null;
+          if (state !== 'active' || !emit) return;
+          partialEmitted = true;
+          emit({ type: 'transcript.partial', text: PARTIAL_TEXT, timestamp: now() });
+          scheduleFinal();
+        }, 10);
+      }
     },
     stop() {
       if (state === 'stopped') return;

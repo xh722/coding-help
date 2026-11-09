@@ -3,7 +3,7 @@ function createSuggestionProvider() {
     suggest(text) {
       const input = String(text || '');
       return {
-        text: input ? 'Consider explaining the deterministic local flow.' : '',
+        text: input ? `Consider explaining: ${input.trim().replace(/\s+/g, ' ')}` : '',
         source: 'local',
       };
     },
