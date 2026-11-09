@@ -30,3 +30,9 @@ Commit: `test: verify local rebuild flow`
 The startup lifecycle now catches local API startup failures, marks dependencies offline, still creates windows, and falls back to local auth while retaining the session machine and deterministic providers. The usage and design docs describe this behavior precisely.
 
 Verification: `node --test tests/electron-contract.test.cjs` — 7 passed.
+
+## Follow-up fix: preserve HTTP authentication errors
+
+The auth transport now falls back only when API startup or network fetch fails. HTTP 401/4xx responses propagate as authentication errors and leave `offline` false. Added a regression test for invalid credentials.
+
+Verification: `npm test` — 36 passed; `npm run check`, `git diff --check`, and the large-file scan passed.

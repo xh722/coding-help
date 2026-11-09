@@ -124,3 +124,25 @@ test('main enters offline mode when local API startup fails', async () => {
   assert.equal(deps.session.getSnapshot().state, 'active');
   deps.transcription.stop();
 });
+
+test('local API authentication errors do not trigger offline fallback', async () => {
+  const { createAppDependencies } = require('../apps/desktop/main/index.cjs');
+  const localApi = {
+    start: async () => {},
+    stop: async () => {},
+    address: () => ({ host: '127.0.0.1', port: 43123 }),
+  };
+  const previousFetch = globalThis.fetch;
+  globalThis.fetch = async () => ({
+    ok: false,
+    status: 401,
+    json: async () => ({ error: { message: 'Invalid credentials' } }),
+  });
+  try {
+    const deps = createAppDependencies({ localApi, clock: () => 1 });
+    await assert.rejects(() => deps.auth.login('local-dev@example.com', 'wrong'), /Invalid credentials/);
+    assert.equal(deps.offline, false);
+  } finally {
+    globalThis.fetch = previousFetch;
+  }
+});

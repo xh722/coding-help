@@ -20,16 +20,23 @@ function createDefaultAuthTransport({ clock }) {
 }
 function createLocalApiAuthTransport({ localApi, ensureStarted, fallback, onUnavailable }) {
   async function request(pathname, body, fallbackMethod) {
+    let address;
     try {
-      const address = await ensureStarted();
-      const response = await fetch(`http://${address.host}:${address.port}${pathname}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
-      const value = response.status === 204 ? null : await response.json();
-      if (!response.ok) throw new Error(value?.error?.message || 'Authentication failed');
-      return value;
+      address = await ensureStarted();
     } catch (error) {
       onUnavailable?.(error);
       return fallback[fallbackMethod](...Object.values(body));
     }
+    let response;
+    try {
+      response = await fetch(`http://${address.host}:${address.port}${pathname}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+    } catch (error) {
+      onUnavailable?.(error);
+      return fallback[fallbackMethod](...Object.values(body));
+    }
+    const value = response.status === 204 ? null : await response.json();
+    if (!response.ok) throw new Error(value?.error?.message || 'Authentication failed');
+    return value;
   }
   return { login: (email, password) => request('/auth/login', { email, password }, 'login'), refresh: (refreshToken) => request('/auth/refresh', { refreshToken }, 'refresh') };
 }
