@@ -24,3 +24,9 @@ The first focused test attempt was blocked by the restricted sandbox refusing lo
 ## Commit
 
 Commit: `test: verify local rebuild flow`
+
+## Follow-up fix
+
+The startup lifecycle now catches local API startup failures, marks dependencies offline, still creates windows, and falls back to local auth while retaining the session machine and deterministic providers. The usage and design docs describe this behavior precisely.
+
+Verification: `node --test tests/electron-contract.test.cjs` — 7 passed.

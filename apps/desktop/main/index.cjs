@@ -18,9 +18,20 @@ function createDefaultAuthTransport({ clock }) {
   function issue() { const accessToken = randomUUID(); const refreshToken = randomUUID(); refreshTokens.add(refreshToken); return { user: { id: 'local-dev', email: 'local-dev@example.com', displayName: 'Local Developer' }, accessToken, refreshToken, expiresAt: clock() + 3600000 }; }
   return { async login(email, password) { if (email !== 'local-dev@example.com' || password !== 'local-dev-password') throw new Error('Invalid credentials'); return issue(); }, async refresh(token) { if (!refreshTokens.delete(token)) throw new Error('Invalid refresh token'); return issue(); } };
 }
-function createLocalApiAuthTransport({ localApi, ensureStarted }) {
-  async function request(pathname, body) { const address = await ensureStarted(); const response = await fetch(`http://${address.host}:${address.port}${pathname}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }); const value = response.status === 204 ? null : await response.json(); if (!response.ok) throw new Error(value?.error?.message || 'Authentication failed'); return value; }
-  return { login: (email, password) => request('/auth/login', { email, password }), refresh: (refreshToken) => request('/auth/refresh', { refreshToken }) };
+function createLocalApiAuthTransport({ localApi, ensureStarted, fallback, onUnavailable }) {
+  async function request(pathname, body, fallbackMethod) {
+    try {
+      const address = await ensureStarted();
+      const response = await fetch(`http://${address.host}:${address.port}${pathname}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+      const value = response.status === 204 ? null : await response.json();
+      if (!response.ok) throw new Error(value?.error?.message || 'Authentication failed');
+      return value;
+    } catch (error) {
+      onUnavailable?.(error);
+      return fallback[fallbackMethod](...Object.values(body));
+    }
+  }
+  return { login: (email, password) => request('/auth/login', { email, password }, 'login'), refresh: (refreshToken) => request('/auth/refresh', { refreshToken }, 'refresh') };
 }
 
 function createAppDependencies(options = {}) {
@@ -28,8 +39,10 @@ function createAppDependencies(options = {}) {
   const store = options.store || (options.storePath ? createJsonStore(options.storePath) : memoryStore());
   const localApi = options.localApi || createLocalApi({ host: '127.0.0.1', port: 0, clock });
   let apiStarted = false;
+  let offline = false;
   async function ensureApiStarted() { if (!apiStarted) { await localApi.start(); apiStarted = true; } return localApi.address(); }
-  const authTransport = options.authTransport || createLocalApiAuthTransport({ localApi, ensureStarted: ensureApiStarted });
+  const fallbackAuth = createDefaultAuthTransport({ clock });
+  const authTransport = options.authTransport || createLocalApiAuthTransport({ localApi, ensureStarted: ensureApiStarted, fallback: fallbackAuth, onUnavailable: () => { offline = true; } });
   const auth = options.auth || createAuthService({ transport: authTransport, store, clock });
   const session = options.session || createSessionMachine({ idFactory: options.idFactory || randomUUID, clock });
   const transcription = options.transcription || createLocalTranscriptionProvider({ clock: options.timer || globalThis });
@@ -71,9 +84,9 @@ function createAppDependencies(options = {}) {
   }
   function createWindows() { if (!windows.dashboard || windows.dashboard.isDestroyed?.()) createWindow('dashboard'); if (!windows.overlay || windows.overlay.isDestroyed?.()) createWindow('overlay'); return { ...windows }; }
   function registerIpc(ipcMain) { if (ipcMain?.handle) ipcMain.handle('local-rebuild:invoke', (event, command, payload) => router.dispatch(command, payload, { source: 'renderer', windowId: event?.sender?.id })); }
-  return { localApi, ensureApiStarted, getApiAddress: () => localApi.address(), stopApi: () => localApi.stop(), auth, session, capture, transcription, suggestions, router, handlers, windows, createWindow, createWindows, registerIpc, emit };
+  return { localApi, ensureApiStarted, getApiAddress: () => localApi.address(), stopApi: () => localApi.stop(), get offline() { return offline; }, setOfflineMode: () => { offline = true; }, auth, session, capture, transcription, suggestions, router, handlers, windows, createWindow, createWindows, registerIpc, emit };
 }
 
-function runElectronApp(electron) { const { app, ipcMain, screen, desktopCapturer } = electron; const deps = createAppDependencies({ electron, screen, desktopCapturer, storePath: path.join(app.getPath('userData'), 'local-rebuild-auth.json') }); deps.registerIpc(ipcMain); app.whenReady().then(async () => { await deps.ensureApiStarted(); deps.createWindows(); }); app.on('before-quit', () => { deps.stopApi(); }); app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); }); app.on('activate', () => deps.createWindows()); return deps; }
+function runElectronApp(electron) { const { app, ipcMain, screen, desktopCapturer } = electron; const deps = createAppDependencies({ electron, screen, desktopCapturer, localApi: electron.__localApi, storePath: path.join(app.getPath('userData'), 'local-rebuild-auth.json') }); deps.registerIpc(ipcMain); app.whenReady().then(async () => { try { await deps.ensureApiStarted(); } catch { deps.setOfflineMode(); } deps.createWindows(); }); app.on('before-quit', () => { deps.stopApi(); }); app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); }); app.on('activate', () => deps.createWindows()); return deps; }
 if (process.versions?.electron) { try { runElectronApp(require('electron')); } catch (error) { console.error('Unable to start local rebuild:', error.message); } }
 module.exports = { createAppDependencies, runElectronApp };

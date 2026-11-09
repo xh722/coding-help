@@ -184,7 +184,7 @@ type SessionEvent =
 - provider 错误转为 `session.error`，不会让主进程退出。
 - 停止、退出和窗口关闭触发幂等清理；未完成会话标记为 `interrupted`。
 - token 刷新失败清除本地 session 并回到登录页。
-- local API 无法启动时，应用进入离线模式，只允许查看本地记录和使用确定性 provider。
+- local API 无法启动时，应用进入离线模式，使用本地认证回退和确定性 provider 继续提供会话功能。
 - 状态存储带 schema version；未知版本只读打开并提示迁移，不覆盖原文件。
 
 ## 测试策略

@@ -89,3 +89,38 @@ test('main blocks will-redirect navigation', () => {
   createAppDependencies({ electron }).createWindow('dashboard');
   assert.equal(blocked, true);
 });
+
+test('main enters offline mode when local API startup fails', async () => {
+  const { runElectronApp } = require('../apps/desktop/main/index.cjs');
+  let ready;
+  const electron = {
+    app: {
+      whenReady: () => new Promise((resolve) => { ready = resolve; }),
+      on: () => {},
+      getPath: () => '/tmp',
+      getVersion: () => '0.1.0',
+      quit: () => {},
+    },
+    ipcMain: { handle: () => {} },
+    screen: {},
+    desktopCapturer: {},
+    BrowserWindow: class {
+      constructor() { this.webContents = { on: () => {}, setWindowOpenHandler: () => {} }; }
+      loadFile() { return Promise.resolve(); }
+      on() {}
+    },
+  };
+  const localApi = {
+    start: async () => { throw new Error('port unavailable'); },
+    stop: async () => {},
+    address: () => ({ host: '127.0.0.1', port: 0 }),
+  };
+  const deps = runElectronApp({ ...electron, __localApi: localApi });
+  ready();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(deps.offline, true);
+  await assert.doesNotReject(() => deps.auth.login('local-dev@example.com', 'local-dev-password'));
+  deps.session.start({ title: 'Offline interview' });
+  assert.equal(deps.session.getSnapshot().state, 'active');
+  deps.transcription.stop();
+});
