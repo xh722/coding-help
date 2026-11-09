@@ -24,6 +24,8 @@ test('dashboard renderer uses only the narrow local bridge', () => {
   assert.doesNotMatch(app, /ipcRenderer|child_process/, 'app.js');
   assert.match(app, /window\.localRebuild\.invoke/);
   assert.match(app, /window\.localRebuild\.onEvent/);
+  assert.match(read('index.html'), /value="local-dev@example\.com"/);
+  assert.match(app, /transcript\.partial/);
 });
 
 test('overlay renderer uses only the narrow local bridge', () => {
@@ -31,4 +33,7 @@ test('overlay renderer uses only the narrow local bridge', () => {
   assert.doesNotMatch(overlay, /\brequire\s*\(/, 'overlay.js');
   assert.doesNotMatch(overlay, /ipcRenderer|child_process/, 'overlay.js');
   assert.match(overlay, /window\.localRebuild\.onEvent/);
+  assert.match(overlay, /transcript\.partial/);
+  assert.match(overlay, /session\.get-current/);
+  assert.match(overlay, /session\.paused|session\.resumed|session\.stopped/);
 });
