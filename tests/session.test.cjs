@@ -44,3 +44,14 @@ test('snapshot metadata and events are immutable copies and subscribers receive 
   machine.pause();
   assert.equal(snapshots.length, 1);
 });
+
+test('event payloads are deeply copied when recorded', () => {
+  const machine = createSessionMachine({ idFactory: () => 's-1', clock: () => 100 });
+  const metadata = { title: 'demo', tags: ['one'] };
+
+  machine.start({ metadata });
+  metadata.tags.push('two');
+
+  const event = machine.getSnapshot().events[0];
+  assert.deepEqual(event.metadata, { title: 'demo', tags: ['one'] });
+});

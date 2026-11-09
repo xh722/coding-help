@@ -14,3 +14,13 @@ Verification:
 The machine supports `idle`, `active`, `paused`, and `stopped`; records transition events, timestamps, metadata, and subscriber updates; clones snapshot data on reads; and makes `stop()` idempotent from `stopped`.
 
 Concern: cloning uses the Node built-in `structuredClone`, so the package requires a Node runtime that provides that API (the current runtime is Node 24).
+
+## Review fix
+
+Added a nested event-payload immutability regression test. The test failed before the fix because event payload objects were stored by reference. Transition events now receive a deep clone at insertion, preventing later caller mutations from changing the event log.
+
+Verification after fix:
+
+- `node --test tests/session.test.cjs` passed.
+- `npm test` passed (2 test files, 3 tests).
+- `npm run check` passed.

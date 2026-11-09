@@ -48,7 +48,7 @@ function createSessionMachine({ idFactory, clock }) {
       session.startedAt = timestamp;
     }
     if (operation === 'stop') session.stoppedAt = timestamp;
-    session.events.push({ type: operation, timestamp, ...(payload || {}) });
+    session.events.push(copy({ type: operation, timestamp, ...(payload || {}) }));
     notify();
   }
 
