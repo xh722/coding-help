@@ -9,6 +9,7 @@ test('allowlist contains every renderer command', () => {
     'auth.login', 'auth.logout', 'auth.get-session',
     'session.start', 'session.pause', 'session.resume', 'session.stop', 'session.get-current', 'session.list', 'session.delete',
     'capture.get-displays', 'capture.take-screenshot',
+    'audio.select-file', 'audio.use-demo', 'audio.get-status',
     'overlay.set-visible', 'overlay.set-bounds', 'app.get-version',
   ]);
   assert.equal(Object.isFrozen(SCHEMAS), true);

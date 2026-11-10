@@ -15,11 +15,11 @@
 | Overlay 悬浮面板 | 已完成 | Local Mode 隐私指示器、转写、建议、录制/暂停/停止状态 |
 | 本地登录 | 已完成 | 仅接受演示账户，支持刷新、退出和过期 token |
 | 本地 API | 已完成 | loopback 绑定、登录、刷新、用户、会话历史、事件、结构化错误；会话/事件可持久化恢复 |
-| 会话状态机 | 已完成 | idle、active、paused、stopped、error，停止操作幂等；生命周期事件写入历史记录 |
-| 本地转写 provider | 已完成 | 生成确定性的 partial/final transcript 事件 |
-| 平台中立音频 provider | 已完成 | 支持确定性 PCM/WAV 输入、生命周期事件和转写 PCM 接线 |
+| 会话状态机 | 已完成 | idle、active、paused、stopped；支持停止后再次开始，音频错误会停止并提示；生命周期事件写入历史记录 |
+| 本地转写 provider | 已完成 | 仅演示 partial/final 和已接收 PCM 统计，不执行语音识别 |
+| 平台中立音频 provider | 已完成 | 可在 Dashboard 选择本地 PCM WAV，完整帧分块、暂停/恢复、输入统计和错误清理 |
 | 本地建议 provider | 已完成 | 根据最后一条转写生成本地建议，不访问网络 |
-| 屏幕枚举 | 已完成 | 通过 Electron `desktopCapturer` 获取显示器列表 |
+| 屏幕枚举 | 已完成 | 通过 Electron `screen` 枚举显示器，`desktopCapturer` 获取屏幕图像 |
 | 截图 IPC | 已完成 | 获取 PNG data URL 并在 Dashboard 中显示最新截图预览 |
 | 真实麦克风/系统音频 | 未完成 | Windows 真实设备 provider 仍待动态验证，当前使用确定性/文件输入 |
 | 真实云端 AI/账户/订阅 | 未完成 | 原版服务端逻辑不在安装包中，无法从客户端完整恢复 |
@@ -30,10 +30,10 @@
 
 ## 快速开始
 
-需要 Node.js 24 或更高版本。进入仓库根目录执行：
+需要 Node.js 24 或更高版本，以及本机桌面显示服务。进入仓库根目录执行：
 
 ```bash
-npm install
+npm ci
 npm test
 npm run check
 npm run start
@@ -54,13 +54,13 @@ npm run start
 4. 观察 transcript partial/final 事件和本地 suggestion。
 5. 点击 `Pause`、`Resume` 和 `Stop` 验证状态转换。
 6. 打开 Overlay，观察 Local Mode 指示器和会话状态。
-7. 使用 `Take screenshot` 测试显示器枚举和截图 IPC；当前版本会执行采集调用，但还没有把图片显示在 Dashboard 中。
+7. 使用 `Take screenshot` 测试显示器枚举和截图 IPC；截图会显示在 Dashboard 的 Latest screenshot 区域。
 
-所有会话、转写和建议都在本地确定性 provider 中生成，默认不需要互联网。
+默认使用三秒演示 PCM；也可以点击 `Choose WAV file` 读取本地文件。转写和建议仍是演示输出，不是实际语音识别。用法、格式限制和隐私说明见 [音频输入指南](docs/audio-input.md)。
 
 ## 测试与验证
 
-当前测试覆盖 59 个行为：
+测试覆盖如下行为（最新数量见文末验证记录）：
 
 ```bash
 npm test
@@ -78,6 +78,9 @@ npm test
 - Dashboard/Overlay 的 CSP、脚本来源和 renderer API 边界。
 - API 启动失败后的离线 fallback。
 - local API、auth、session 和 provider 的端到端组合流程。
+- 完整 WAV 帧传输、来源切换、输入错误后重试、重复会话及退出清理。
+
+`npm run smoke` 使用真实 Electron 运行桌面流程（需要显示服务；无显示器的 Linux 使用 `xvfb-run -a npm run smoke`）。仅系统文件选择器的返回值替换为合成 WAV，其他链路使用真实代码。
 
 语法检查：
 
@@ -107,7 +110,8 @@ packages/core/
   ipc.cjs               IPC 白名单、schema 和错误清洗
 
 packages/providers/
-  transcription.cjs     确定性 partial/final provider
+  audio.cjs             PCM / WAV 输入和资源清理
+  transcription.cjs     演示转写及 PCM 输入统计
   suggestions.cjs       本地建议 provider
   capture.cjs           显示器/截图接口和注入式实现
 
@@ -120,7 +124,7 @@ tests/
 docs/
   local-rebuild-usage.md                       快速使用说明
   superpowers/specs/...-design.md              完整设计和安全边界
-  superpowers/plans/...-implementation-plan.md 实施计划
+  superpowers/plans/2026-11-10-audio-capture-provider.md 音频实施计划
 ```
 
 ## 安全边界
@@ -130,6 +134,7 @@ docs/
 - Electron 使用 `contextIsolation: true`、`nodeIntegration: false`、`sandbox: true`。
 - Preload 只暴露 `window.localRebuild.invoke/onEvent/removeEventListener`。
 - renderer 不接触 `require`、`ipcRenderer`、Node `process` 或任意命令执行接口。
+- WAV 文件路径只来自系统选择器；仅受信任桌面窗口的主 frame 可调用 IPC。
 - 本地 API 只监听 `127.0.0.1`、`localhost` 或 `::1`。
 - 认证失败、token 过期和 API 不可用会分别处理；HTTP 401 不会被误判成离线。
 - Dashboard 和 Overlay 使用本地 CSP，事件内容通过 `textContent` 写入页面。
@@ -145,6 +150,7 @@ Electron 启动时会尝试启动本地 API。如果 API 因端口、权限或�
 - 保留 session 状态机。
 - 保留本地转写和建议 provider。
 - 不访问原版云端服务。
+- 离线 fallback 当前仅维持本次会话；local API 不可用时，新历史记录不能保证写入。
 
 认证接口返回 4xx 时仍会向用户报告真实认证错误，不会错误地切换到离线模式。
 
@@ -187,4 +193,4 @@ Electron 启动时会尝试启动本地 API。如果 API 因端口、权限或�
 
 ## 最终验证
 
-2026-11-10：`npm test` 通过 44/44，`npm run check`、`git diff --check` 和大文件扫描通过；最终本地重建提交作者为 `19856850715@163.com`。
+本次音频输入阶段通过80项 Node测试、28个文件语法检查及真实 Electron/Xvfb 验证；完整命令、结果和剩余范围见 [音频阶段验证报告](reports/audio-input-verification-2026-11-10.md)。提交作者邮箱为 `19856850715@163.com`。

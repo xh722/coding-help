@@ -27,11 +27,17 @@
         <label class="full">Notes<textarea id="notes" rows="2" placeholder="Optional local notes"></textarea></label>
         <div class="actions"><button id="start" type="submit">Start</button><button id="pause" type="button" class="secondary" disabled>Pause</button><button id="resume" type="button" class="secondary" disabled>Resume</button><button id="stop" type="button" class="danger" disabled>Stop</button></div>
       </form>
+      <div class="audio-input" aria-labelledby="audio-heading">
+        <div><strong id="audio-heading">Local audio input</strong><p class="muted">WAV/PCM input is processed locally. Transcript output is a demo, not speech recognition.</p></div>
+        <div class="toolbar"><button id="audio-file" type="button" class="secondary">Choose WAV file</button><button id="audio-demo" type="button" class="secondary">Use demo PCM</button></div>
+        <p id="audio-source" class="muted">Demo PCM (no microphone)</p>
+        <p id="audio-status" role="status" aria-live="polite">Idle</p>
+      </div>
       <div class="toolbar"><button id="screenshot" type="button" class="secondary" disabled>Take screenshot</button><button id="overlay" type="button" class="secondary">Show overlay</button></div>
       <figure id="screenshot-preview" class="screenshot-preview" hidden><figcaption>Latest screenshot</figcaption><img id="screenshot-image" alt="Latest desktop screenshot"></figure>
     </section>
     <section class="card" aria-labelledby="history-heading"><div class="card-heading"><div><p class="eyebrow">HISTORY</p><h2 id="history-heading">Saved sessions</h2></div><div class="actions"><button id="history-refresh" type="button" class="secondary">Refresh</button><button id="history-export" type="button" class="secondary" disabled>Export JSON</button><button id="history-delete" type="button" class="danger" disabled>Delete</button></div></div><ol id="history-list" class="event-list"><li class="empty">No saved sessions yet.</li></ol><pre id="history-detail" class="history-detail" hidden></pre></section>
-    <section class="columns"><section class="card"><div class="card-heading"><h2>Transcript</h2><span class="muted">Live events</span></div><ol id="transcript" class="event-list"><li class="empty">No transcript events yet.</li></ol></section><section class="card"><div class="card-heading"><h2>Suggestions</h2><span class="muted">Local hints</span></div><ol id="suggestions" class="event-list"><li class="empty">No suggestions yet.</li></ol></section></section>
+    <section class="columns"><section class="card"><div class="card-heading"><h2>Transcript</h2><span class="muted">DEMO · no speech recognition</span></div><ol id="transcript" class="event-list"><li class="empty">No transcript events yet.</li></ol></section><section class="card"><div class="card-heading"><h2>Suggestions</h2><span class="muted">Local demo hints</span></div><ol id="suggestions" class="event-list"><li class="empty">No suggestions yet.</li></ol></section></section>
     <footer class="footer"><span>All data stays on this device.</span><span id="privacy">Privacy indicator: local mode</span></footer>
   </main>
   <script src="./app.js" defer></script>

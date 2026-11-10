@@ -4,7 +4,7 @@ const transitions = {
   idle: { start: 'active' },
   active: { pause: 'paused', stop: 'stopped' },
   paused: { resume: 'active', stop: 'stopped' },
-  stopped: {},
+  stopped: { start: 'active' },
 };
 
 function copy(value) {
@@ -42,6 +42,11 @@ function createSessionMachine({ idFactory, clock }) {
       throw new Error(`Invalid transition from ${session.state} via ${operation}`);
     }
     const timestamp = clock();
+    if (operation === 'start' && session.state === 'stopped') {
+      session.id = idFactory();
+      session.events = [];
+      session.stoppedAt = null;
+    }
     session.state = nextState;
     if (operation === 'start') {
       session.metadata = copy(payload || {});

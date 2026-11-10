@@ -36,3 +36,19 @@ jobs:
             echo 'Tracked or workspace artifact exceeds 20 MiB'
             exit 1
           fi
+
+  electron-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install desktop test dependencies
+        run: npm ci
+      - name: Exercise real Electron with a synthetic WAV
+        run: xvfb-run -a npm run smoke

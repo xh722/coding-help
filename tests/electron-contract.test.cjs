@@ -61,15 +61,17 @@ test('IPC command allowlist is mirrored by preload validation', async () => {
   await assert.rejects(() => api.invoke('auth.login', null), /Payload must be an object/);
 });
 
-test('main composes transcription events and enforces secure windows', async () => {
+test('main composes transcription events and enforces secure windows', async (t) => {
   const events = [];
   const provider = { start(options) { this.emit = options.emit; }, pause() { events.push('pause'); }, resume() { events.push('resume'); }, stop() { events.push('stop'); } };
   const { createAppDependencies } = require('../apps/desktop/main/index.cjs');
   const deps = createAppDependencies({ idFactory: () => 'session-1', clock: () => 1, transcription: provider, suggestions: { suggest: (text) => ({ text: `suggest:${text}` }) } });
   deps.windows.dashboard = { isDestroyed: () => false, webContents: { send: (_channel, event) => events.push(event) } };
   await deps.router.dispatch('session.start', { title: 'Test' }, { source: 'renderer', windowId: 1 });
+  t.after(() => deps.shutdown());
   provider.emit({ type: 'transcript.final', text: 'answer', timestamp: 2 });
-  assert.deepEqual(events.filter((event) => typeof event === 'object'), [{ type: 'audio.started', source: 'deterministic', sampleRate: 16000, channels: 1, format: 'pcm_s16le' }, { type: 'audio.stopped', source: 'deterministic' }, { type: 'capture.started', source: 'local' }, { type: 'transcript.final', text: 'answer', timestamp: 2 }, { type: 'suggestion', text: 'suggest:answer', timestamp: 2 }]);
+  assert.deepEqual(events.filter((event) => ['capture.started', 'transcript.final', 'suggestion'].includes(event?.type)), [{ type: 'capture.started', source: 'local' }, { type: 'transcript.final', text: 'answer', timestamp: 2 }, { type: 'suggestion', text: 'suggest:answer', timestamp: 2 }]);
+  assert.equal(events.some((event) => event?.type === 'audio.error'), false);
   await deps.router.dispatch('session.pause', {}, { source: 'renderer', windowId: 1 });
   await deps.router.dispatch('session.resume', {}, { source: 'renderer', windowId: 1 });
   await deps.router.dispatch('session.stop', {}, { source: 'renderer', windowId: 1 });
@@ -104,9 +106,9 @@ test('main wires audio lifecycle and chunks into transcription idempotently', as
 
   await deps.router.dispatch('session.start', { title: 'Audio test' }, { source: 'renderer', windowId: 1 });
   audio.options.onEvent({ type: 'audio.started', source: 'fake' });
-  audio.options.onEvent({ type: 'audio.error', source: 'fake', code: 'TEST', message: 'test' });
+  audio.options.onEvent({ type: 'audio.chunk', data: Buffer.from([99]) });
   audio.options.onChunk(Buffer.from([1, 2]), { source: 'fake' });
-  assert.deepEqual(events.filter((event) => event?.type?.startsWith('audio.')).map((event) => event.type), ['audio.started', 'audio.error']);
+  assert.deepEqual(events.filter((event) => event?.type?.startsWith('audio.') && event.type !== 'audio.status').map((event) => event.type), ['audio.started']);
   assert.deepEqual(events.find((event) => event?.type === 'chunk').chunk, Buffer.from([1, 2]));
 
   await deps.router.dispatch('session.pause', {}, { source: 'renderer', windowId: 1 });
@@ -224,7 +226,7 @@ test('main persists session lifecycle and provider events through the session AP
   await new Promise((resolve) => setImmediate(resolve));
   assert.equal(persisted[0].type, 'session.created');
   assert.deepEqual(persisted.slice(1).map((event) => event.type), [
-    'audio.started', 'audio.stopped', 'capture.started', 'transcript.final', 'suggestion', 'session.paused', 'session.resumed', 'session.stopped', 'capture.stopped',
+    'audio.started', 'capture.started', 'transcript.final', 'suggestion', 'audio.paused', 'session.paused', 'audio.resumed', 'session.resumed', 'audio.stopped', 'session.stopped', 'capture.stopped',
   ]);
 });
 

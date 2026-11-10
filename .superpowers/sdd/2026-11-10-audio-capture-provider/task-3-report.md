@@ -17,3 +17,5 @@ Author: `19856850715@163.com`
 - `git diff --check` — passed.
 
 Windows real-device capture remains pending because this Linux environment has no authorized Windows VM or audio device. No original binaries were run.
+
+Final integration acceptance: the earlier sandbox-only EPERM observations are superseded by the authoritative loopback-enabled 80/80 test run and real Electron/Xvfb smoke. See reports/audio-input-verification-2026-11-10.md. PCM8 is unsigned pcm_u8; the desktop now selects WAV via a native dialog and uses sustained audio-input mode.

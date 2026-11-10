@@ -7,6 +7,7 @@ const SCHEMAS = Object.freeze({
   'session.start': { required: ['title'], fields: { title: 'string', language: 'string', notes: 'string' } },
   'session.pause': { required: [], fields: {} }, 'session.resume': { required: [], fields: {} }, 'session.stop': { required: [], fields: {} }, 'session.get-current': { required: [], fields: {} }, 'session.list': { required: [], fields: {} }, 'session.delete': { required: ['id'], fields: { id: 'string' } },
   'capture.get-displays': { required: [], fields: {} }, 'capture.take-screenshot': { required: [], fields: { displayId: 'string' } },
+  'audio.select-file': { required: [], fields: {} }, 'audio.use-demo': { required: [], fields: {} }, 'audio.get-status': { required: [], fields: {} },
   'overlay.set-visible': { required: ['visible'], fields: { visible: 'boolean' } }, 'overlay.set-bounds': { required: ['x', 'y', 'width', 'height'], fields: { x: 'number', y: 'number', width: 'number', height: 'number' } }, 'app.get-version': { required: [], fields: {} },
 });
 function validateCommand(name, payload) {

@@ -5,7 +5,7 @@
 在仓库根目录执行：
 
 ```bash
-npm install
+npm ci
 npm test
 npm run check
 ```
@@ -31,8 +31,12 @@ npm run start
 
 local API 只监听 `127.0.0.1`，默认使用随机端口。转写和建议由确定性本地 provider 生成，因此登录、会话、暂停/恢复、结束和事件记录无需互联网。若 local API 启动失败，应用会进入离线模式，使用本地认证回退和确定性 provider 继续提供会话功能；原始服务端、账户系统、Recall 云上传和 Windows native agent 都不会被调用。
 
-端到端流程见 [`tests/local-flow.test.cjs`](../tests/local-flow.test.cjs)：它启动本地 API，通过公开 auth/session/provider 接口完成一次完整流程，并核对持久化事件顺序与 `stopped` 快照。
+端到端流程见 [`tests/local-flow.test.cjs`](../tests/local-flow.test.cjs)：它启动本地 API，通过公开 auth/session/provider 接口完成一次完整流程，并核对持久化事件顺序与 `stopped` 快照。真实桌面测试使用 `npm run smoke`；无显示服务时返回“未验证”，不作为通过。
 
 ## 安全与范围
 
 本项目不会执行原始安装器，不运行原始 Electron/PE、native DLL 或完整 ASAR，也不提交真实账户 token。原始静态分析材料仅用于界面和接口边界的重建。
+
+## 本地音频
+
+Dashboard 的 `Choose WAV file` 支持本地整数 PCM WAV；默认 `Use demo PCM` 是合成静音。两种输入都支持暂停、恢复、停止和重复会话。转写输出仅显示演示文本与输入统计，不执行语音识别。详细格式、错误行为及真实 Electron smoke 命令见 [音频输入指南](audio-input.md)。
