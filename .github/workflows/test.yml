@@ -51,4 +51,18 @@ jobs:
       - name: Install desktop test dependencies
         run: npm ci
       - name: Exercise real Electron with a synthetic WAV
-        run: xvfb-run -a npm run smoke
+        shell: bash
+        run: |
+          set +e
+          xvfb-run -a npm run smoke > "$RUNNER_TEMP/electron-smoke.log" 2>&1
+          smoke_status=$?
+          cat "$RUNNER_TEMP/electron-smoke.log"
+          if [ "$smoke_status" -ne 0 ]; then
+            python3 - <<'PY'
+          import os, pathlib
+          message = (pathlib.Path(os.environ['RUNNER_TEMP']) / 'electron-smoke.log').read_text(errors='replace')[-10000:]
+          message = message.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
+          print('::error title=Electron runtime check failed::' + message)
+          PY
+          fi
+          exit "$smoke_status"
