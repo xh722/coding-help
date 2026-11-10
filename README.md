@@ -50,7 +50,7 @@ npm run check:linux-bundle
 ./dist/interviewcoder-local-rebuild-linux-x64/run.sh
 ```
 
-bundle 只包含当前仓库的 `apps/`、`packages/`、`services/` 和已安装 Electron runtime。`bundle-manifest.json` 记录每个文件的大小和 SHA-256；`check:linux-bundle` 会校验清单、启动器权限和原版安装器/native 文件排除。当前没有签名、自动更新或 Windows/macOS 安装包。
+bundle 只包含当前仓库的 `apps/`、`packages/`、`services/` 和已安装 Electron runtime。`bundle-manifest.json` 记录每个文件的大小和 SHA-256；`check:linux-bundle` 会校验清单、启动器权限和原版安装器/native 文件排除。CI 传入 `CODING_HELP_EXPECTED_REVISION` 时还会校验 bundle 来源提交 SHA。当前没有签名、自动更新或 Windows/macOS 安装包。
 
 启动后使用本地演示账户：
 
