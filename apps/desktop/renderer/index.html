@@ -28,8 +28,13 @@
         <div class="actions"><button id="start" type="submit">Start</button><button id="pause" type="button" class="secondary" disabled>Pause</button><button id="resume" type="button" class="secondary" disabled>Resume</button><button id="stop" type="button" class="danger" disabled>Stop</button></div>
       </form>
       <div class="audio-input" aria-labelledby="audio-heading">
-        <div><strong id="audio-heading">Local audio input</strong><p class="muted">WAV/PCM input is processed locally. Transcript output is a demo, not speech recognition.</p></div>
-        <div class="toolbar"><button id="audio-file" type="button" class="secondary">Choose WAV file</button><button id="audio-demo" type="button" class="secondary">Use demo PCM</button></div>
+        <div><strong id="audio-heading">Local audio input</strong><p class="muted">Microphone, WAV and demo PCM are processed locally. Transcript output is a demo, not speech recognition.</p></div>
+        <div class="toolbar"><button id="audio-microphone" type="button" class="secondary">Use microphone</button><button id="audio-file" type="button" class="secondary">Choose WAV file</button><button id="audio-demo" type="button" class="secondary">Use demo PCM</button></div>
+        <div id="microphone-controls" hidden>
+          <label>Microphone device<select id="microphone-device"><option value="">Default microphone</option></select></label>
+          <button id="microphone-refresh" type="button" class="secondary">Refresh devices</button>
+          <p class="muted">Start requests microphone access. Pause, Stop and Sign out release the microphone. Resume requests it again.</p>
+        </div>
         <p id="audio-source" class="muted">Demo PCM (no microphone)</p>
         <p id="audio-status" role="status" aria-live="polite">Idle</p>
       </div>
@@ -40,6 +45,7 @@
     <section class="columns"><section class="card"><div class="card-heading"><h2>Transcript</h2><span class="muted">DEMO · no speech recognition</span></div><ol id="transcript" class="event-list"><li class="empty">No transcript events yet.</li></ol></section><section class="card"><div class="card-heading"><h2>Suggestions</h2><span class="muted">Local demo hints</span></div><ol id="suggestions" class="event-list"><li class="empty">No suggestions yet.</li></ol></section></section>
     <footer class="footer"><span>All data stays on this device.</span><span id="privacy">Privacy indicator: local mode</span></footer>
   </main>
+  <script src="./microphone.js" defer></script>
   <script src="./app.js" defer></script>
 </body>
 </html>

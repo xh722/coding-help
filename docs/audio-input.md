@@ -1,6 +1,22 @@
-# 本地 PCM / WAV 音频输入
+# 本地麦克风 / PCM / WAV 音频输入
 
-音频文件和 PCM 数据已接入桌面会话；当前转写器仍为演示实现，**不会识别文件中的语音**。它显示接收到的音频块和字节数，不输出猜测的识别文本。麦克风、系统音频和 Windows 原版 agent 继续列入待办。
+标准麦克风、音频文件和 PCM 数据已接入桌面会话；当前转写器仍为演示实现，**不会识别语音**。它显示接收到的音频块和字节数。系统音频、Windows 原版 agent 对照和真实硬件验收继续列入待办。
+
+## 使用麦克风
+
+1. 登录后点击 **Use microphone**，从 **Microphone device** 中选择设备；通常可保留 **Default microphone**。**Refresh devices** 仅枚举设备，不开始录音。尚未授权时系统可能不提供设备名称。
+2. 点击 **Start** 才申请麦克风访问。界面先显示 **Requesting microphone access**，准备完成后显示 **Microphone active** 和接收统计。系统提示授权时，允许该本地应用使用麦克风。
+3. **Pause** 关闭音轨和 AudioContext；**Resume** 重新申请并建立采集，不补录暂停期间的声音。运行或暂停时，输入源和设备选择被锁定。
+4. **Stop**、**Sign out**、关闭 Dashboard、刷新页面或退出应用都会结束采集。设备断开、处理器失败或处理速度不足会终止会话并提示错误。
+5. 拒绝权限、设备被占用或找不到设备时，检查系统设置，必要时停止后刷新设备列表，重新开始。等待权限或初始化超过 30 秒会自动取消；取消之后才到达的授权结果也会立即关闭音轨。
+
+只采集用户选择的麦克风，不采集系统回放、摄像头或屏幕声音。音频在本机流经 AudioWorklet 和主进程，不回放到扬声器，不上传或保存原始 PCM。历史中保存的是生命周期、格式和演示统计，不包含设备 ID、采集标识或原始音频。
+
+实现通过 Chromium 的标准 `getUserMedia` 获取音频，AudioWorklet 下混为单声道 16-bit little-endian PCM。请求 16kHz，界面记录实际协商采样率；每块约 20ms。IPC 每包不超过 16384 字节，队列最多 4 个等待块及 1 个在途块，过载直接停止并提示，不静默丢块。
+
+权限仅允许正在申请/运行采集的 Dashboard 主 frame 访问 audio；摄像头、混合 audio/video、Overlay、其他 URL 和子 frame 均拒绝。主进程同时安装 [Electron permission check/request handlers](https://www.electronjs.org/docs/latest/api/session)，并核对采集标识、顺序、PCM 类型和长度。浏览器处理流程参见 [AudioWorkletProcessor.process](https://developer.mozilla.org/en-US/docs/Web/API/AudioWorkletProcessor/process)。
+
+本阶段使用 Linux + Chromium 合成麦克风验证链路，**没有实测物理麦克风，也没有验证 Windows/macOS 系统权限和设备兼容性**。
 
 ## 在桌面端使用
 
@@ -24,7 +40,7 @@
 | 分块数量 | 最多 65536 块；默认 16kHz、20ms 分块约 21 分 50 秒，超长文件需先切分 |
 | 采样率 / 声道 | 1–384000 Hz / 1–32，格式字段须一致 |
 | 分块 | 默认 20ms，始终按完整采样帧切分，尾块按实际长度处理 |
-| 不支持 | MP3、AAC、float WAV、WAVE_FORMAT_EXTENSIBLE、实时设备 |
+| 文件格式不支持 | MP3、AAC、float WAV、WAVE_FORMAT_EXTENSIBLE |
 
 错误文件、截断数据、不一致的 RIFF 长度 / byteRate / blockAlign、无读取权限、超限输入都会返回错误，不会启动原始 Windows 程序。`audio.error` 对外使用固定错误信息，不泄漏本机路径。
 
@@ -38,7 +54,9 @@
 - `onEvent()` 只传 `audio.started/paused/resumed/stopped/error` 元数据；自然完成、停止和消费回调异常都会清理定时器及内部缓冲引用。
 - `createLocalTranscriptionProvider({ mode: 'audio' })` 接受 `pushAudio()`，统计 `{ bytes, chunks }`。它持续接收直到 `finishAudio()`，不会被旧演示的 20ms 定时器提前关闭。
 - `getAudioStats()` 不返回原始音频；`stop()` 清空统计。旧 `mode: 'demo'` 定时演示仍用于独立合约测试。
-- 其他音频实现可通过 `createAppDependencies({ audio })` 注入；这是扩展点，尚未提供真实设备适配器。
+- `createMicrophoneProvider()` 由主进程管理采集标识，提供相同生命周期接口及 `ready/push/fail/permissionExpected`。暂停和恢复会使用不同标识，过期音频块无法进入新采集。
+- renderer 的 `createMicrophoneCapture()` 管理 MediaStream、AudioContext、Worklet 和有界发送队列；异步步骤取消、迟到授权、设备 `ended` 和 Worklet `processorerror` 均有清理路径。
+- 其他音频实现可通过 `createAppDependencies({ audio })` 注入；系统音频适配器仍未实现。
 
 ## 验证
 
@@ -48,6 +66,8 @@ npm run check
 npm run smoke
 ```
 
-没有显示服务的 Linux CI 可以运行 `xvfb-run -a npm run smoke`。smoke 启动真实 Electron、主进程、sandboxed Preload 和 renderer，在临时用户目录中完成登录、WAV 输入、暂停/恢复、完整 64000 字节传输、历史保存和第二次会话。仅 OS 文件选择对话框返回值使用测试 fixture；其他链路使用真实实现，不打开麦克风。
+没有显示服务的 Linux CI 可以运行 `xvfb-run -a npm run smoke`。smoke 启动真实 Electron、主进程、sandboxed Preload 和 renderer，在临时用户目录中完成登录、WAV 输入、暂停/恢复、完整 64000 字节传输、历史保存和第二次会话。OS 文件选择对话框返回值使用测试 fixture。
+
+同一测试用 Chromium `--use-fake-device-for-media-stream` 供应合成音频，通过真实 `getUserMedia`、AudioWorklet、Preload 和主进程验证数据流及轨道释放；覆盖暂停/恢复、停止、刷新、退出登录和权限拒绝。它不使用绕过权限的 `--use-fake-ui-for-media-stream`，不录制物理麦克风。
 
 没有 DISPLAY 时 smoke 返回退出码 2（未验证），不会假报成功。受限 Linux CI 只有显式设置 `CODING_HELP_SMOKE_NO_SANDBOX=1` 才给该测试进程传 Chromium `--no-sandbox`；普通 `npm start` 不使用此开关。本次本地 Xvfb 验证未启用它。

@@ -1,6 +1,6 @@
 'use strict';
 
-// Uses the real desktop entry/preload/renderer with a synthetic WAV and temporary user data.
+// Real desktop entry/preload/renderer with synthetic WAV and Chromium media devices.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
@@ -25,7 +25,8 @@ async function main() {
   const wav = path.join(root, 'smoke.wav'); fs.writeFileSync(wav, Buffer.concat([header, data]));
   const env = { ...process.env, XDG_CONFIG_HOME: path.join(root, 'config'), XDG_CACHE_HOME: path.join(root, 'cache'), XDG_DATA_HOME: path.join(root, 'data') };
   delete env.ELECTRON_RUN_AS_NODE;
-  const args = [repo, `--user-data-dir=${path.join(root, 'profile')}`, '--disable-gpu'];
+  // Fake device supplies audio/video; do NOT use fake-ui, which bypasses permission handling.
+  const args = [repo, `--user-data-dir=${path.join(root, 'profile')}`, '--disable-gpu', '--use-fake-device-for-media-stream'];
   // Restricted Linux CI containers may explicitly opt into this test-only switch.
   if (process.env.CODING_HELP_SMOKE_NO_SANDBOX === '1') args.push('--no-sandbox');
   let desktop;
@@ -39,6 +40,16 @@ async function main() {
       if (!page) await new Promise((resolve) => setTimeout(resolve, 50));
     }
     assert.ok(page, 'Dashboard did not load');
+    async function waitForAudio(predicate) {
+      const until = Date.now() + 15000; let status;
+      do {
+        status = await page.evaluate(() => window.localRebuild.invoke('audio.get-status'));
+        if (predicate(status)) return status;
+        if (status.state === 'error') throw new Error(`Audio failed: ${await page.locator('#error').textContent()}`);
+        await page.waitForTimeout(50);
+      } while (Date.now() < until);
+      throw new Error(`Audio did not reach the expected state: ${JSON.stringify(status)}`);
+    }
     const errors = [];
     page.on('pageerror', (error) => errors.push(error.message));
     await page.locator('#login-form').waitFor({ state: 'visible' });
@@ -80,12 +91,68 @@ async function main() {
     await page.waitForFunction(() => document.getElementById('session-state').textContent === 'Active');
     await page.locator('#stop').click();
     await page.waitForFunction(() => document.querySelectorAll('#history-list li').length === 3);
+    // Wrap the real Web API solely to observe returned track lifetimes.
+    await page.evaluate(() => {
+      window.__smokeStreams = []; window.__smokeCalls = 0; window.__smokeEvents = [];
+      window.localRebuild.onEvent((event) => { if (event.type !== 'audio.status') window.__smokeEvents.push(event); });
+      const real = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
+      navigator.mediaDevices.getUserMedia = async (constraints) => {
+        window.__smokeCalls++;
+        const stream = await real(constraints); window.__smokeStreams.push(stream); return stream;
+      };
+    });
+    const probe = async (target, constraints) => target.evaluate(async (value) => {
+      try { const stream = await navigator.mediaDevices.getUserMedia(value); stream.getTracks().forEach((track) => track.stop()); return 'granted'; }
+      catch (error) { return error.name; }
+    }, constraints);
+    assert.equal(await probe(page, { audio: true }), 'NotAllowedError', 'audio denied before explicit capture');
+    await page.locator('#audio-microphone').click();
+    await page.locator('#microphone-controls').waitFor({ state: 'visible' });
+    assert.equal(await page.evaluate(() => window.__smokeCalls), 1, 'selecting/listing devices must not open capture');
+    await page.locator('#title').fill('Microphone smoke'); await page.locator('#start').click();
+    const microphoneStatus = await waitForAudio((status) => status.source === 'microphone' && status.chunks >= 5);
+    assert.ok(microphoneStatus.chunks >= 5, `Microphone did not deliver PCM: ${JSON.stringify({ status: microphoneStatus, events: await page.evaluate(() => window.__smokeEvents), ui: await page.locator('#error').textContent() })}`);
+    assert.equal(microphoneStatus.source, 'microphone'); assert.equal(microphoneStatus.channels, 1); assert.equal(microphoneStatus.bitsPerSample, 16);
+    assert.ok(await page.evaluate(() => window.__smokeStreams.some((stream) => stream.getAudioTracks().some((track) => track.readyState === 'live'))));
+    assert.equal(await probe(page, { video: true }), 'NotAllowedError', 'camera denied while audio is active');
+    assert.equal(await probe(page, { audio: true, video: true }), 'NotAllowedError', 'combined camera/audio denied');
+    const overlay = desktop.windows().find((window) => window.url().endsWith('/overlay.html')); assert.ok(overlay);
+    assert.equal(await probe(overlay, { audio: true }), 'NotAllowedError', 'overlay cannot request the microphone');
+    await page.locator('#pause').click();
+    await page.waitForFunction(() => window.__smokeStreams.every((stream) => stream.getTracks().every((track) => track.readyState === 'ended')));
+    const paused = await page.evaluate(() => window.localRebuild.invoke('audio.get-status'));
+    await page.waitForTimeout(250);
+    const stillPaused = await page.evaluate(() => window.localRebuild.invoke('audio.get-status'));
+    assert.equal(stillPaused.bytes, paused.bytes); assert.equal(stillPaused.chunks, paused.chunks);
+    assert.equal(await probe(page, { audio: true }), 'NotAllowedError', 'pause revokes permission');
+    await page.locator('#resume').click();
+    await waitForAudio((status) => status.bytes > paused.bytes);
+    await page.waitForFunction(() => window.__smokeStreams.length >= 2);
+    assert.equal(await page.evaluate(() => window.__smokeStreams[0].getTracks().every((track) => track.readyState === 'ended')), true);
     const screenshot = process.env.CODING_HELP_SMOKE_SCREENSHOT;
     if (screenshot) await page.screenshot({ path: path.resolve(screenshot), fullPage: true });
+    await page.locator('#stop').click();
+    await page.waitForFunction(() => document.getElementById('session-state').textContent === 'Stopped' && window.__smokeStreams.every((stream) => stream.getTracks().every((track) => track.readyState === 'ended')));
+    await page.locator('#history-list li').filter({ hasText: 'Microphone smoke' }).click();
+    const micHistory = JSON.parse(await page.locator('#history-detail').textContent());
+    assert.ok(micHistory.events.some((event) => event.type === 'audio.started' && event.source === 'microphone'));
+    assert.ok(micHistory.events.some((event) => event.type === 'audio.resumed'));
+    assert.ok(micHistory.events.some((event) => event.type === 'transcript.final' && event.demo));
+    assert.ok(micHistory.events.every((event) => !('data' in event) && !('captureId' in event) && !('deviceId' in event)));
+    await page.locator('#title').fill('Microphone reload'); await page.locator('#start').click();
+    await waitForAudio((status) => status.chunks > 2);
+    await page.reload();
+    await page.waitForFunction(() => document.getElementById('session-state').textContent === 'Stopped');
+    assert.equal(await probe(page, { audio: true }), 'NotAllowedError', 'reload stops acquisition');
+    await page.locator('#title').fill('Microphone signout'); await page.locator('#start').click();
+    await waitForAudio((status) => status.chunks > 2);
+    await page.locator('#logout').click();
+    await page.waitForFunction(() => document.getElementById('auth-badge').textContent === 'Signed out' && document.getElementById('session-state').textContent === 'Stopped');
+    assert.equal(await probe(page, { audio: true }), 'NotAllowedError', 'sign out stops acquisition');
     assert.deepEqual(errors, []);
     const prefs = await desktop.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().map((w) => w.webContents.getLastWebPreferences()));
     assert.ok(prefs.every((p) => p.contextIsolation && p.sandbox && !p.nodeIntegration));
-    console.log('Electron smoke PASS: real preload/login/WAV input/pause/resume/64000-byte delivery/history/second session.');
+    console.log('Electron smoke PASS: real preload/login/WAV 64000 bytes/history; synthetic microphone PCM/permission denials/pause release/resume reacquire/stop/reload/signout.');
   } finally {
     if (desktop) await desktop.close();
     fs.rmSync(root, { recursive: true, force: true });

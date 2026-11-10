@@ -4,7 +4,8 @@ const COMMANDS = Object.freeze([
   'auth.login', 'auth.logout', 'auth.get-session',
   'session.start', 'session.pause', 'session.resume', 'session.stop', 'session.get-current', 'session.list', 'session.delete',
   'capture.get-displays', 'capture.take-screenshot',
-  'audio.select-file', 'audio.use-demo', 'audio.get-status',
+  'audio.select-file', 'audio.use-demo', 'audio.get-status', 'audio.use-microphone',
+  'audio.microphone-ready', 'audio.microphone-chunk', 'audio.microphone-failed',
   'overlay.set-visible', 'overlay.set-bounds', 'app.get-version',
 ]);
 
@@ -22,6 +23,10 @@ const schemas = {
   'audio.select-file': { required: [], fields: {} },
   'audio.use-demo': { required: [], fields: {} },
   'audio.get-status': { required: [], fields: {} },
+  'audio.use-microphone': { required: [], fields: {} },
+  'audio.microphone-ready': { required: ['captureId', 'sampleRate', 'channels'], fields: { captureId: 'string', sampleRate: 'number', channels: 'number' } },
+  'audio.microphone-chunk': { required: ['captureId', 'sequence', 'data'], fields: { captureId: 'string', sequence: 'number', data: 'pcm' } },
+  'audio.microphone-failed': { required: ['captureId', 'code'], fields: { captureId: 'string', code: 'string' } },
   'capture.get-displays': { required: [], fields: {} },
   'capture.take-screenshot': { required: [], fields: { displayId: 'string' } },
   'overlay.set-visible': { required: ['visible'], fields: { visible: 'boolean' } },
@@ -42,7 +47,7 @@ class IpcError extends Error {
 }
 
 function validateCommand(name, payload) {
-  const schema = schemas[name];
+  const schema = Object.hasOwn(schemas, name) ? schemas[name] : null;
   if (!schema) return { ok: false, error: `Unknown command: ${name}` };
   if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
     return { ok: false, error: 'Payload must be an object' };
@@ -50,7 +55,9 @@ function validateCommand(name, payload) {
   for (const key of Object.keys(payload)) {
     if (!Object.prototype.hasOwnProperty.call(schema.fields, key)) return { ok: false, error: `Unknown payload field: ${key}` };
     const type = schema.fields[key];
-    if (typeof payload[key] !== type || (type === 'number' && !Number.isFinite(payload[key]))) {
+    const value = payload[key];
+    const valid = type === 'pcm' ? value instanceof Uint8Array && value.byteLength > 0 && value.byteLength <= 16384 && value.byteLength % 2 === 0 : typeof value === type && (type !== 'number' || Number.isFinite(value));
+    if (!valid) {
       return { ok: false, error: `${key} must be a ${type}` };
     }
   }
@@ -63,7 +70,7 @@ function validateCommand(name, payload) {
 function createIpcRouter(handlers = {}) {
   return {
     async dispatch(name, payload = {}, context = {}) {
-      if (!schemas[name]) throw new IpcError('UNKNOWN_COMMAND', 'Unknown command');
+      if (!Object.hasOwn(schemas, name)) throw new IpcError('UNKNOWN_COMMAND', 'Unknown command');
       const safeContext = context && typeof context === 'object' ? context : {};
       if (safeContext.source !== 'renderer' ||
           (typeof safeContext.windowId !== 'string' && typeof safeContext.windowId !== 'number') ||

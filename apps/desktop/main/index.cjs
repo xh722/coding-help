@@ -1,6 +1,7 @@
 'use strict';
 
 const path = require('node:path');
+const { pathToFileURL } = require('node:url');
 const { randomUUID } = require('node:crypto');
 const { createAuthService } = require('../../../packages/core/auth.cjs');
 const { createJsonStore } = require('../../../packages/core/storage.cjs');
@@ -8,6 +9,8 @@ const { createSessionMachine } = require('../../../packages/core/session.cjs');
 const { createIpcRouter } = require('../../../packages/core/ipc.cjs');
 const { createCaptureProvider } = require('../../../packages/providers/capture.cjs');
 const { createAudioCaptureProvider, readWavFile, validateWavCapture } = require('../../../packages/providers/audio.cjs');
+const { createMicrophoneProvider } = require('../../../packages/providers/microphone.cjs');
+const { installMediaPermissions } = require('./media-permissions.cjs');
 const { createLocalTranscriptionProvider } = require('../../../packages/providers/transcription.cjs');
 const { createSuggestionProvider } = require('../../../packages/providers/suggestions.cjs');
 const { createLocalApi } = require('../../../services/local-api/server.cjs');
@@ -110,6 +113,7 @@ function createAppDependencies(options = {}) {
   let selectedAudio = { source: 'deterministic', label: 'Demo PCM (no microphone)' };
   function makeAudio() {
     if (options.audio) return options.audio;
+    if (selectedAudio.source === 'microphone') return createMicrophoneProvider({ sendControl: sendMicrophoneControl, clock: options.timer || globalThis });
     if (selectedAudio.source === 'file') return createAudioCaptureProvider({ source: 'file', filePath: selectedAudio.path, clock: options.timer || globalThis });
     // Three seconds of generated silence. This is a pipeline demonstration, not recorded speech.
     return createAudioCaptureProvider({ clock: options.timer || globalThis, chunks: Array.from({ length: 150 }, () => Buffer.alloc(640)) });
@@ -132,6 +136,16 @@ function createAppDependencies(options = {}) {
   const desktopCapturer = options.desktopCapturer || electron?.desktopCapturer;
   const screen = options.screen || electron?.screen;
   const windows = { dashboard: null, overlay: null };
+  const dashboardUrl = pathToFileURL(path.join(__dirname, '../renderer/index.html')).href;
+  function sendMicrophoneControl(event) {
+    const win = windows.dashboard;
+    if (!win || win.isDestroyed?.() || win.webContents.getURL() !== dashboardUrl) throw new Error('Dashboard unavailable');
+    win.webContents.send('local-rebuild:event', event);
+  }
+  function registerMediaPermissions() {
+    installMediaPermissions({ session: electron?.session?.defaultSession, getDashboard: () => windows.dashboard, dashboardUrl,
+      isExpected: () => selectedAudio.source === 'microphone' && audio.permissionExpected?.() === true });
+  }
   function broadcast(event) {
     for (const window of Object.values(windows)) {
       if (window && !window.isDestroyed?.() && window.webContents?.send) window.webContents.send('local-rebuild:event', event);
@@ -142,7 +156,12 @@ function createAppDependencies(options = {}) {
     if (event?.type === 'transcript.final') emit({ type: 'suggestion', text: suggestions.suggest(event.text).text, timestamp: event.timestamp, ...(event.demo ? { demo: true } : {}) });
   };
   const audioMessages = {
-    PERMISSION_DENIED: 'Permission to read the audio input was denied.',
+    PERMISSION_DENIED: 'Audio access was denied. Allow microphone access in system settings and try again.',
+    DEVICE_NOT_FOUND: 'The selected microphone is unavailable. Choose another device.',
+    DEVICE_LOST: 'The microphone was disconnected. Select a device and start again.',
+    MICROPHONE_UNAVAILABLE: 'The microphone could not start. Check device access and try again.',
+    MICROPHONE_BACKPRESSURE: 'Audio processing could not keep up. Stop other busy tasks and try again.',
+    MICROPHONE_TIMEOUT: 'Microphone access timed out. Check system permissions and start again.',
     FILE_NOT_FOUND: 'The selected audio file is no longer available.',
     FILE_READ_ERROR: 'The audio file could not be read.',
     MALFORMED_WAV: 'The selected file is not a valid PCM WAV file.',
@@ -163,10 +182,10 @@ function createAppDependencies(options = {}) {
     ...(transcription.getAudioStats?.() || { bytes: 0, chunks: 0 }),
   });
   function handleAudioEvent(event) {
-    if (!['audio.started', 'audio.paused', 'audio.resumed', 'audio.stopped', 'audio.error'].includes(event?.type)) return;
+    if (!['audio.requesting', 'audio.started', 'audio.paused', 'audio.resumed', 'audio.stopped', 'audio.error'].includes(event?.type)) return;
     const safe = { type: event.type, source: selectedAudio.source, timestamp: clock() };
     for (const key of ['sampleRate', 'channels', 'bitsPerSample']) {
-      if (Number.isFinite(event[key]) && event[key] > 0) safe[key] = event[key];
+      if (Number.isFinite(event[key]) && event[key] > 0) { safe[key] = event[key]; if (selectedAudio.source === 'microphone') selectedAudio[key] = event[key]; }
     }
     if (['pcm_u8', 'pcm_s16le', 'pcm_s24le', 'pcm_s32le'].includes(event.format)) safe.format = event.format;
     audioState = event.type.slice(6);
@@ -275,6 +294,13 @@ function createAppDependencies(options = {}) {
       selectedAudio = { source: 'deterministic', label: 'Demo PCM (no microphone)' }; audioState = 'idle'; return audioStatus();
     },
     'audio.get-status': audioStatus,
+    'audio.use-microphone': () => {
+      if (audioBusy() || selectingAudio) return { ok: false, error: { code: 'AUDIO_BUSY', message: 'Stop the session before changing its audio input.' } };
+      selectedAudio = { source: 'microphone', label: 'Microphone' }; audioState = 'idle'; return audioStatus();
+    },
+    'audio.microphone-ready': (payload) => audio.ready?.(payload) || { ok: true, accepted: false },
+    'audio.microphone-chunk': (payload) => audio.push?.(payload) || { ok: true, accepted: false },
+    'audio.microphone-failed': (payload) => audio.fail?.(payload) || { ok: true, accepted: false },
     'session.list': async () => { await persistenceQueue; const token = auth.getSession?.()?.accessToken; if (!token || typeof sessionApi.list !== 'function') return []; try { return await sessionApi.list(token); } catch { return []; } },
     'session.delete': async ({ id }) => {
       if (id === apiSessionId && audioBusy()) return { ok: false, error: { code: 'SESSION_ACTIVE', message: 'Stop the session before deleting it.' } };
@@ -289,12 +315,22 @@ function createAppDependencies(options = {}) {
     'app.get-version': () => electron?.app?.getVersion?.() || options.version || DEFAULT_VERSION,
   };
   const router = createIpcRouter(handlers);
+  function releaseDashboardCapture() {
+    if (selectedAudio.source !== 'microphone' || !audioBusy()) return;
+    // Revoke the capability immediately, even if persistence is still draining.
+    audio.pause(); serialize(stopSession).catch(() => {});
+  }
   function createWindow(kind, windowOptions = {}) {
     if (!electron?.BrowserWindow) return null;
     const isOverlay = kind === 'overlay';
     const win = new electron.BrowserWindow({ width: isOverlay ? 420 : 1120, height: isOverlay ? 240 : 760, ...windowOptions, webPreferences: { ...(windowOptions.webPreferences || {}), contextIsolation: true, nodeIntegration: false, sandbox: true, preload: path.join(__dirname, '../preload/index.cjs') }, show: !isOverlay, transparent: isOverlay, frame: !isOverlay, alwaysOnTop: isOverlay });
     win.webContents?.on?.('will-navigate', (event) => event.preventDefault()); win.webContents?.on?.('will-redirect', (event) => event.preventDefault()); win.webContents?.setWindowOpenHandler?.(() => ({ action: 'deny' }));
-    win.on?.('closed', () => { if (windows[kind] === win) windows[kind] = null; });
+    if (!isOverlay) {
+      win.webContents?.on?.('did-start-navigation', (_event, _url, isInPlace, isMainFrame) => { if (isMainFrame && !isInPlace) releaseDashboardCapture(); });
+      win.webContents?.on?.('render-process-gone', releaseDashboardCapture);
+      win.webContents?.on?.('destroyed', releaseDashboardCapture);
+    }
+    win.on?.('closed', () => { if (windows[kind] === win) { if (!isOverlay) releaseDashboardCapture(); windows[kind] = null; } });
     const loaded = win.loadFile?.(path.join(__dirname, '../renderer', isOverlay ? 'overlay.html' : 'index.html'));
     loaded?.catch?.(() => { broadcast({ type: 'app.error', message: 'A desktop page could not be loaded.' }); });
     windows[kind] = win; return win;
@@ -304,6 +340,8 @@ function createAppDependencies(options = {}) {
     ipcMain?.handle?.('local-rebuild:invoke', (event, command, payload) => {
       const trusted = Object.values(windows).some((win) => win && win.webContents === event?.sender);
       if (!trusted || event.senderFrame !== event.sender.mainFrame) return { ok: false, error: { code: 'INVALID_CONTEXT', message: 'Invalid renderer context' } };
+      const microphoneCommand = typeof command === 'string' && (command.startsWith('audio.microphone-') || command === 'audio.use-microphone' || (selectedAudio.source === 'microphone' && ['session.start', 'session.resume'].includes(command)));
+      if (microphoneCommand && (event.sender !== windows.dashboard?.webContents || event.sender.getURL() !== dashboardUrl)) return { ok: false, error: { code: 'INVALID_CONTEXT', message: 'Invalid renderer context' } };
       return router.dispatch(command, payload, { source: 'renderer', windowId: event.sender.id });
     });
   }
@@ -312,7 +350,7 @@ function createAppDependencies(options = {}) {
     shutdownPromise ||= serialize(async () => { await stopSession(); audio.stop(); transcription.stop(); await persistenceQueue; await stopApi(); });
     return shutdownPromise;
   };
-  return { localApi, sessionApi, ensureApiStarted, getApiAddress: () => localApi.address(), stopApi, shutdown, flushSessionEvents: () => persistenceQueue, get offline() { return offline; }, setOfflineMode: () => { offline = true; }, auth, session, get audio() { return audio; }, capture, transcription, suggestions, router, handlers, windows, createWindow, createWindows, registerIpc, emit };
+  return { localApi, sessionApi, ensureApiStarted, getApiAddress: () => localApi.address(), stopApi, shutdown, flushSessionEvents: () => persistenceQueue, get offline() { return offline; }, setOfflineMode: () => { offline = true; }, auth, session, get audio() { return audio; }, capture, transcription, suggestions, router, handlers, windows, createWindow, createWindows, registerIpc, registerMediaPermissions, emit };
 }
 
 function runElectronApp(electron) {
@@ -320,7 +358,7 @@ function runElectronApp(electron) {
   const userData = app.getPath('userData');
   const deps = createAppDependencies({ electron, screen, desktopCapturer, localApi: electron.__localApi, storePath: path.join(userData, 'local-rebuild-auth.json'), sessionStorePath: path.join(userData, 'local-rebuild-sessions.json') });
   deps.registerIpc(ipcMain);
-  app.whenReady().then(async () => { try { await deps.ensureApiStarted(); } catch { deps.setOfflineMode(); } deps.createWindows(); });
+  app.whenReady().then(async () => { deps.registerMediaPermissions(); try { await deps.ensureApiStarted(); } catch { deps.setOfflineMode(); } deps.createWindows(); });
   let quitting = false;
   app.on('before-quit', (event) => {
     if (quitting) return;

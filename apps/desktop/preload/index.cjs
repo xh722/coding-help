@@ -8,12 +8,21 @@ const SCHEMAS = Object.freeze({
   'session.pause': { required: [], fields: {} }, 'session.resume': { required: [], fields: {} }, 'session.stop': { required: [], fields: {} }, 'session.get-current': { required: [], fields: {} }, 'session.list': { required: [], fields: {} }, 'session.delete': { required: ['id'], fields: { id: 'string' } },
   'capture.get-displays': { required: [], fields: {} }, 'capture.take-screenshot': { required: [], fields: { displayId: 'string' } },
   'audio.select-file': { required: [], fields: {} }, 'audio.use-demo': { required: [], fields: {} }, 'audio.get-status': { required: [], fields: {} },
+  'audio.use-microphone': { required: [], fields: {} },
+  'audio.microphone-ready': { required: ['captureId', 'sampleRate', 'channels'], fields: { captureId: 'string', sampleRate: 'number', channels: 'number' } },
+  'audio.microphone-chunk': { required: ['captureId', 'sequence', 'data'], fields: { captureId: 'string', sequence: 'number', data: 'pcm' } },
+  'audio.microphone-failed': { required: ['captureId', 'code'], fields: { captureId: 'string', code: 'string' } },
   'overlay.set-visible': { required: ['visible'], fields: { visible: 'boolean' } }, 'overlay.set-bounds': { required: ['x', 'y', 'width', 'height'], fields: { x: 'number', y: 'number', width: 'number', height: 'number' } }, 'app.get-version': { required: [], fields: {} },
 });
 function validateCommand(name, payload) {
-  const schema = SCHEMAS[name]; if (!schema) return { ok: false, error: `Unknown command: ${name}` };
+  const schema = Object.hasOwn(SCHEMAS, name) ? SCHEMAS[name] : null; if (!schema) return { ok: false, error: `Unknown command: ${name}` };
   if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return { ok: false, error: 'Payload must be an object' };
-  for (const key of Object.keys(payload)) { if (!Object.prototype.hasOwnProperty.call(schema.fields, key)) return { ok: false, error: `Unknown payload field: ${key}` }; const type = schema.fields[key]; if (typeof payload[key] !== type || (type === 'number' && !Number.isFinite(payload[key]))) return { ok: false, error: `${key} must be a ${type}` }; }
+  for (const key of Object.keys(payload)) {
+    if (!Object.hasOwn(schema.fields, key)) return { ok: false, error: `Unknown payload field: ${key}` };
+    const type = schema.fields[key]; const value = payload[key];
+    const valid = type === 'pcm' ? value instanceof Uint8Array && value.byteLength > 0 && value.byteLength <= 16384 && value.byteLength % 2 === 0 : typeof value === type && (type !== 'number' || Number.isFinite(value));
+    if (!valid) return { ok: false, error: `${key} must be a ${type}` };
+  }
   for (const key of schema.required) if (!Object.prototype.hasOwnProperty.call(payload, key)) return { ok: false, error: `Missing required field: ${key}` };
   return { ok: true, value: { ...payload } };
 }

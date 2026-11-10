@@ -54,7 +54,7 @@ jobs:
         run: |
           sudo chown root:root node_modules/electron/dist/chrome-sandbox
           sudo chmod 4755 node_modules/electron/dist/chrome-sandbox
-      - name: Exercise real Electron with a synthetic WAV
+      - name: Exercise real Electron with synthetic WAV and microphone
         env:
           DEBUG: pw:browser
         shell: bash

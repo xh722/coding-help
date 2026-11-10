@@ -21,7 +21,8 @@
 | 本地建议 provider | 已完成 | 根据最后一条转写生成本地建议，不访问网络 |
 | 屏幕枚举 | 已完成 | 通过 Electron `screen` 枚举显示器，`desktopCapturer` 获取屏幕图像 |
 | 截图 IPC | 已完成 | 获取 PNG data URL 并在 Dashboard 中显示最新截图预览 |
-| 真实麦克风/系统音频 | 未完成 | Windows 真实设备 provider 仍待动态验证，当前使用确定性/文件输入 |
+| 标准麦克风采集 | 已实现，硬件待验 | 设备选择、点击开始申请权限、AudioWorklet PCM、暂停释放/恢复重连；已通过真实 Electron 合成设备验证 |
+| 系统音频/Windows 原版采集兼容 | 未完成 | 系统回放、原版 agent 协议及 Windows 动态对照仍待验证 |
 | 真实云端 AI/账户/订阅 | 未完成 | 原版服务端逻辑不在安装包中，无法从客户端完整恢复 |
 | 原版自动更新链 | 未完成 | 只保留静态逆向证据，未接入原版更新源 |
 | Windows 动态行为对照 | 待做 | 需要授权的 Windows 虚拟机和隔离网络环境 |
@@ -56,7 +57,7 @@ npm run start
 6. 打开 Overlay，观察 Local Mode 指示器和会话状态。
 7. 使用 `Take screenshot` 测试显示器枚举和截图 IPC；截图会显示在 Dashboard 的 Latest screenshot 区域。
 
-默认使用三秒演示 PCM；也可以点击 `Choose WAV file` 读取本地文件。转写和建议仍是演示输出，不是实际语音识别。用法、格式限制和隐私说明见 [音频输入指南](docs/audio-input.md)。
+默认使用三秒演示 PCM；也可以点击 `Choose WAV file` 读取本地文件，或点击 `Use microphone` 选择麦克风。选择和刷新设备不会录音；点击 `Start` 后才申请麦克风访问。`Pause` 释放音轨，`Resume` 重新采集；停止、刷新和退出登录均结束采集。转写和建议仍是演示输出，不是实际语音识别。详细用法、权限排错、格式限制和隐私说明见 [音频输入指南](docs/audio-input.md)。
 
 ## 测试与验证
 
@@ -79,8 +80,9 @@ npm test
 - API 启动失败后的离线 fallback。
 - local API、auth、session 和 provider 的端到端组合流程。
 - 完整 WAV 帧传输、来源切换、输入错误后重试、重复会话及退出清理。
+- 麦克风 PCM 编码、设备/处理器故障、迟到授权、队列过载、过期采集标识、乱序/越界音频块和权限拒绝。
 
-`npm run smoke` 使用真实 Electron 运行桌面流程（需要显示服务；无显示器的 Linux 使用 `xvfb-run -a npm run smoke`）。仅系统文件选择器的返回值替换为合成 WAV，其他链路使用真实代码。
+`npm run smoke` 使用真实 Electron 运行桌面流程（需要显示服务；无显示器的 Linux 使用 `xvfb-run -a npm run smoke`）。文件选择器返回合成 WAV；麦克风由 Chromium 合成媒体设备提供，经过真实 AudioWorklet、Preload 和主进程验证。覆盖采集、暂停释放、恢复重连、停止、刷新、退出登录，以及摄像头/Overlay/非采集状态拒绝。不录制物理麦克风，不跳过权限处理。
 
 语法检查：
 
@@ -95,10 +97,13 @@ npm run check
 ```text
 apps/desktop/
   main/index.cjs       Electron 主进程、窗口、IPC、API 生命周期
+  main/media-permissions.cjs Dashboard 麦克风权限策略
   preload/index.cjs    sandbox 安全 bridge，只暴露 localRebuild
   renderer/
     index.html         Dashboard 页面
     app.js             登录、会话、事件渲染
+    microphone.js      浏览器采集、设备列表和资源释放
+    pcm-worklet.js     音频下混、PCM 编码和分块
     overlay.html       Overlay 页面
     overlay.js         Overlay 状态和事件渲染
     styles.css         本地 UI 样式
@@ -111,6 +116,7 @@ packages/core/
 
 packages/providers/
   audio.cjs             PCM / WAV 输入和资源清理
+  microphone.cjs        麦克风采集标识、IPC 数据校验及生命周期
   transcription.cjs     演示转写及 PCM 输入统计
   suggestions.cjs       本地建议 provider
   capture.cjs           显示器/截图接口和注入式实现
@@ -135,6 +141,7 @@ docs/
 - Preload 只暴露 `window.localRebuild.invoke/onEvent/removeEventListener`。
 - renderer 不接触 `require`、`ipcRenderer`、Node `process` 或任意命令执行接口。
 - WAV 文件路径只来自系统选择器；仅受信任桌面窗口的主 frame 可调用 IPC。
+- 麦克风仅允许 Dashboard 主 frame 在采集请求期间访问；摄像头、混合音视频、Overlay 和其他页面请求均拒绝。每次采集使用独立标识和有界 PCM 消息，不保存原始声音或设备 ID。
 - 本地 API 只监听 `127.0.0.1`、`localhost` 或 `::1`。
 - 认证失败、token 过期和 API 不可用会分别处理；HTTP 401 不会被误判成离线。
 - Dashboard 和 Overlay 使用本地 CSP，事件内容通过 `textContent` 写入页面。
@@ -178,7 +185,9 @@ Electron 启动时会尝试启动本地 API。如果 API 因端口、权限或�
 
 ## 下一阶段
 
-提高与原软件的行为一致性，需要在授权的 Windows 虚拟机中完成动态验证：
+下一步优先接入真正的语音识别 provider，并完成物理麦克风与桌面打包验收。当前演示转写不会识别语音。
+
+Windows 原版动态验证已按要求记为待办并跳过，不阻塞上述标准能力开发。后续具备授权虚拟机时再进行：
 
 1. 记录原版安装后的进程树、文件、注册表和自动启动项。
 2. 捕获 `agent-windows.exe` 的 stdin/stdout JSON 行协议。
@@ -193,4 +202,4 @@ Electron 启动时会尝试启动本地 API。如果 API 因端口、权限或�
 
 ## 最终验证
 
-本次音频输入阶段通过80项 Node测试、28个文件语法检查及真实 Electron/Xvfb 验证；完整命令、结果和剩余范围见 [音频阶段验证报告](reports/audio-input-verification-2026-11-10.md)。提交作者邮箱为 `19856850715@163.com`。
+PCM/WAV 阶段证据见 [音频阶段验证报告](reports/audio-input-verification-2026-11-10.md)；最新麦克风实现、测试结果和未验证范围见 [麦克风阶段验证报告](reports/microphone-verification-2026-11-10.md)。提交作者邮箱为 `19856850715@163.com`。
