@@ -153,3 +153,18 @@ test('local API restores sessions and events from its storage file', async () =>
     fs.rmSync(root, { recursive: true, force: true });
   }
 });
+
+test('local API deletes a persisted session', async () => {
+  const api = createLocalApi({ host: '127.0.0.1', port: 0 });
+  await api.start();
+  const base = `http://${api.address().host}:${api.address().port}`;
+  try {
+    const login = await request(base, '/auth/login', { method: 'POST', body: JSON.stringify({ email: 'local-dev@example.com', password: 'local-dev-password' }) });
+    const headers = { authorization: `Bearer ${login.body.accessToken}` };
+    const created = await request(base, '/sessions', { method: 'POST', headers, body: JSON.stringify({ title: 'Delete me' }) });
+    const deleted = await request(base, `/sessions/${created.body.id}`, { method: 'DELETE', headers });
+    assert.equal(deleted.response.status, 204);
+    const listed = await request(base, '/sessions', { headers });
+    assert.deepEqual(listed.body, []);
+  } finally { await api.stop(); }
+});

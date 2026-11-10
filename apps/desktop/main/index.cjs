@@ -55,6 +55,7 @@ function createLocalSessionApiTransport({ ensureStarted }) {
     create: (token, metadata) => request('POST', '/sessions', token, metadata),
     append: (token, id, event) => request('POST', `/sessions/${encodeURIComponent(id)}/events`, token, event),
     list: (token) => request('GET', '/sessions', token),
+    delete: (token, id) => request('DELETE', `/sessions/${encodeURIComponent(id)}`, token),
   };
 }
 
@@ -123,6 +124,7 @@ function createAppDependencies(options = {}) {
     'session.pause': () => { session.pause(); transcription.pause(); emit({ type: 'session.paused', source: 'local' }); return session.getSnapshot(); }, 'session.resume': () => { session.resume(); transcription.resume(); emit({ type: 'session.resumed', source: 'local' }); return session.getSnapshot(); },
     'session.stop': () => { session.stop(); transcription.stop(); emit({ type: 'session.stopped', source: 'local' }); emit({ type: 'capture.stopped', source: 'local' }); return session.getSnapshot(); }, 'session.get-current': () => session.getSnapshot(),
     'session.list': async () => { const token = auth.getSession?.()?.accessToken; if (!token || typeof sessionApi.list !== 'function') return []; try { return await sessionApi.list(token); } catch { return []; } },
+    'session.delete': async ({ id }) => { const token = auth.getSession?.()?.accessToken; if (!token || typeof sessionApi.delete !== 'function') return { ok: false, error: { code: 'AUTH_REQUIRED', message: 'Sign in required' } }; try { return await sessionApi.delete(token, id); } catch { return { ok: false, error: { code: 'SESSION_DELETE_FAILED', message: 'Unable to delete session' } }; } },
     'capture.get-displays': () => capture.getDisplays(), 'capture.take-screenshot': ({ displayId }) => capture.takeScreenshot(displayId),
     'overlay.set-visible': ({ visible }) => { const overlay = windows.overlay; if (!overlay || overlay.isDestroyed?.()) return { ok: false, error: { code: 'OVERLAY_UNAVAILABLE', message: 'Overlay is unavailable' } }; visible ? overlay.show() : overlay.hide(); return { ok: true, visible }; },
     'overlay.set-bounds': (bounds) => { const overlay = windows.overlay; if (!overlay || overlay.isDestroyed?.()) return { ok: false, error: { code: 'OVERLAY_UNAVAILABLE', message: 'Overlay is unavailable' } }; if (![bounds.x, bounds.y, bounds.width, bounds.height].every(Number.isFinite) || bounds.width <= 0 || bounds.height <= 0) return { ok: false, error: { code: 'INVALID_BOUNDS', message: 'Invalid overlay bounds' } }; overlay.setBounds(bounds); return { ok: true, bounds: { ...bounds } }; },

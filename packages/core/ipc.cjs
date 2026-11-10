@@ -2,7 +2,7 @@
 
 const COMMANDS = Object.freeze([
   'auth.login', 'auth.logout', 'auth.get-session',
-  'session.start', 'session.pause', 'session.resume', 'session.stop', 'session.get-current', 'session.list',
+  'session.start', 'session.pause', 'session.resume', 'session.stop', 'session.get-current', 'session.list', 'session.delete',
   'capture.get-displays', 'capture.take-screenshot',
   'overlay.set-visible', 'overlay.set-bounds', 'app.get-version',
 ]);
@@ -17,6 +17,8 @@ const schemas = {
   'session.stop': { required: [], fields: {} },
   'session.get-current': { required: [], fields: {} },
   'session.list': { required: [], fields: {} },
+  'session.delete': { required: ['id'], fields: { id: 'string' } },
+  'session.delete': { required: ['id'], fields: { id: 'string' } },
   'capture.get-displays': { required: [], fields: {} },
   'capture.take-screenshot': { required: [], fields: { displayId: 'string' } },
   'overlay.set-visible': { required: ['visible'], fields: { visible: 'boolean' } },

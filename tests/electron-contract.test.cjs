@@ -201,3 +201,15 @@ test('main exposes persisted session history through IPC', async () => {
   const result = await deps.router.dispatch('session.list', {}, { source: 'renderer', windowId: 1 });
   assert.deepEqual(result, [{ id: 'saved-1', token: 'access-1' }]);
 });
+
+test('main exposes session deletion through IPC', async () => {
+  const { createAppDependencies } = require('../apps/desktop/main/index.cjs');
+  let deleted;
+  const deps = createAppDependencies({
+    auth: { getSession: () => ({ accessToken: 'access-1' }) },
+    sessionApi: { delete: async (token, id) => { deleted = { token, id }; return { ok: true }; } },
+  });
+  const result = await deps.router.dispatch('session.delete', { id: 'saved-1' }, { source: 'renderer', windowId: 1 });
+  assert.deepEqual(result, { ok: true });
+  assert.deepEqual(deleted, { token: 'access-1', id: 'saved-1' });
+});

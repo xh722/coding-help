@@ -155,6 +155,13 @@ function createLocalApi({ host = '127.0.0.1', port = 0, clock = () => Date.now()
       persistSessions(storagePath, sessions);
       return json(res, 201, structuredClone(session));
     }
+    if (req.method === 'DELETE' && parts.length === 2 && parts[0] === 'sessions') {
+      if (!requireAuth(req, res)) return;
+      if (!sessions.has(parts[1])) return error(res, 404, 'SESSION_NOT_FOUND', 'Session not found');
+      sessions.delete(parts[1]);
+      persistSessions(storagePath, sessions);
+      res.writeHead(204); return res.end();
+    }
     return error(res, 404, 'NOT_FOUND', 'Route not found');
   }
   return {
