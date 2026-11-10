@@ -3,6 +3,8 @@
 
 const http = require('node:http');
 const { randomUUID } = require('node:crypto');
+const fs = require('node:fs');
+const path = require('node:path');
 
 const DEMO_EMAIL = 'local-dev@example.com';
 const DEMO_PASSWORD = 'local-dev-password';
@@ -18,10 +20,41 @@ function error(res, status, code, message) {
   json(res, status, { error: { code, message } });
 }
 
-function createLocalApi({ host = '127.0.0.1', port = 0, clock = () => Date.now() } = {}) {
+function withoutPasswords(value) {
+  if (Array.isArray(value)) return value.map(withoutPasswords);
+  if (!value || typeof value !== 'object') return value;
+  const result = {};
+  for (const [key, child] of Object.entries(value)) {
+    if (key.toLowerCase().includes('password')) continue;
+    result[key] = withoutPasswords(child);
+  }
+  return result;
+}
+
+function loadSessions(storagePath) {
+  if (!storagePath) return new Map();
+  try {
+    const document = JSON.parse(fs.readFileSync(storagePath, 'utf8'));
+    if (!document || document.version !== 1 || !Array.isArray(document.sessions)) return new Map();
+    return new Map(document.sessions.filter((session) => session && typeof session.id === 'string').map((session) => [session.id, withoutPasswords(session)]));
+  } catch {
+    return new Map();
+  }
+}
+
+function persistSessions(storagePath, sessions) {
+  if (!storagePath) return;
+  fs.mkdirSync(path.dirname(storagePath), { recursive: true });
+  const temporaryPath = `${storagePath}.tmp`;
+  const document = JSON.stringify({ version: 1, sessions: withoutPasswords([...sessions.values()]) });
+  fs.writeFileSync(temporaryPath, document, 'utf8');
+  fs.renameSync(temporaryPath, storagePath);
+}
+
+function createLocalApi({ host = '127.0.0.1', port = 0, clock = () => Date.now(), storagePath } = {}) {
   if (typeof clock !== 'function') throw new TypeError('clock must be a function');
   if (!['127.0.0.1', 'localhost', '::1'].includes(host)) throw new TypeError('host must be loopback');
-  const sessions = new Map();
+  const sessions = loadSessions(storagePath);
   const accessTokens = new Map();
   const refreshTokens = new Map();
   let server;
@@ -111,6 +144,7 @@ function createLocalApi({ host = '127.0.0.1', port = 0, clock = () => Date.now()
       if (!requireAuth(req, res)) return;
       const session = { id: randomUUID(), metadata: structuredClone(body || {}), createdAt: clock(), events: [] };
       sessions.set(session.id, session);
+      persistSessions(storagePath, sessions);
       return json(res, 201, structuredClone(session));
     }
     if (req.method === 'POST' && parts.length === 3 && parts[0] === 'sessions' && parts[2] === 'events') {
@@ -118,6 +152,7 @@ function createLocalApi({ host = '127.0.0.1', port = 0, clock = () => Date.now()
       const session = sessions.get(parts[1]);
       if (!session) return error(res, 404, 'SESSION_NOT_FOUND', 'Session not found');
       session.events.push({ ...(structuredClone(body || {})), timestamp: clock() });
+      persistSessions(storagePath, sessions);
       return json(res, 201, structuredClone(session));
     }
     return error(res, 404, 'NOT_FOUND', 'Route not found');

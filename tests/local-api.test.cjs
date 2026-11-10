@@ -1,5 +1,8 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
 const { createLocalApi } = require('../services/local-api/server.cjs');
 
 async function request(base, path, options = {}) {
@@ -116,4 +119,37 @@ test('local API enforces loopback hosts and access token expiry', async () => {
     assert.equal(expired.response.status, 401);
     assert.equal(expired.body.error.code, 'UNAUTHORIZED');
   } finally { await api.stop(); }
+});
+
+test('local API restores sessions and events from its storage file', async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'local-api-session-'));
+  const storagePath = path.join(root, 'sessions.json');
+  const createApi = () => createLocalApi({ host: '127.0.0.1', port: 0, storagePath });
+  const first = createApi();
+  await first.start();
+  const firstBase = `http://${first.address().host}:${first.address().port}`;
+  let sessionId;
+  try {
+    const login = await request(firstBase, '/auth/login', { method: 'POST', body: JSON.stringify({ email: 'local-dev@example.com', password: 'local-dev-password' }) });
+    const headers = { authorization: `Bearer ${login.body.accessToken}` };
+    const created = await request(firstBase, '/sessions', { method: 'POST', headers, body: JSON.stringify({ title: 'Persisted session' }) });
+    sessionId = created.body.id;
+    await request(firstBase, `/sessions/${sessionId}/events`, { method: 'POST', headers, body: JSON.stringify({ type: 'transcript.final', text: 'saved' }) });
+  } finally {
+    await first.stop();
+  }
+
+  const second = createApi();
+  await second.start();
+  const secondBase = `http://${second.address().host}:${second.address().port}`;
+  try {
+    const login = await request(secondBase, '/auth/login', { method: 'POST', body: JSON.stringify({ email: 'local-dev@example.com', password: 'local-dev-password' }) });
+    const listed = await request(secondBase, '/sessions', { headers: { authorization: `Bearer ${login.body.accessToken}` } });
+    assert.equal(listed.response.status, 200);
+    assert.equal(listed.body[0].id, sessionId);
+    assert.equal(listed.body[0].events[0].text, 'saved');
+  } finally {
+    await second.stop();
+    fs.rmSync(root, { recursive: true, force: true });
+  }
 });

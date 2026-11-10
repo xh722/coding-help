@@ -44,7 +44,7 @@ function createLocalApiAuthTransport({ localApi, ensureStarted, fallback, onUnav
 function createAppDependencies(options = {}) {
   const clock = options.clock || (() => Date.now());
   const store = options.store || (options.storePath ? createJsonStore(options.storePath) : memoryStore());
-  const localApi = options.localApi || createLocalApi({ host: '127.0.0.1', port: 0, clock });
+  const localApi = options.localApi || createLocalApi({ host: '127.0.0.1', port: 0, clock, storagePath: options.sessionStorePath });
   let apiStarted = false;
   let apiStartPromise = null;
   let offline = false;
@@ -112,6 +112,6 @@ function createAppDependencies(options = {}) {
   return { localApi, ensureApiStarted, getApiAddress: () => localApi.address(), stopApi, get offline() { return offline; }, setOfflineMode: () => { offline = true; }, auth, session, capture, transcription, suggestions, router, handlers, windows, createWindow, createWindows, registerIpc, emit };
 }
 
-function runElectronApp(electron) { const { app, ipcMain, screen, desktopCapturer } = electron; const deps = createAppDependencies({ electron, screen, desktopCapturer, localApi: electron.__localApi, storePath: path.join(app.getPath('userData'), 'local-rebuild-auth.json') }); deps.registerIpc(ipcMain); app.whenReady().then(async () => { try { await deps.ensureApiStarted(); } catch { deps.setOfflineMode(); } deps.createWindows(); }); app.on('before-quit', () => { deps.stopApi(); }); app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); }); app.on('activate', () => deps.createWindows()); return deps; }
+function runElectronApp(electron) { const { app, ipcMain, screen, desktopCapturer } = electron; const userData = app.getPath('userData'); const deps = createAppDependencies({ electron, screen, desktopCapturer, localApi: electron.__localApi, storePath: path.join(userData, 'local-rebuild-auth.json'), sessionStorePath: path.join(userData, 'local-rebuild-sessions.json') }); deps.registerIpc(ipcMain); app.whenReady().then(async () => { try { await deps.ensureApiStarted(); } catch { deps.setOfflineMode(); } deps.createWindows(); }); app.on('before-quit', () => { deps.stopApi(); }); app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); }); app.on('activate', () => deps.createWindows()); return deps; }
 if (process.versions?.electron) { try { runElectronApp(require('electron')); } catch (error) { console.error('Unable to start local rebuild:', error.message); } }
 module.exports = { createAppDependencies, runElectronApp };
