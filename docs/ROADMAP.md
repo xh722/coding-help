@@ -23,6 +23,34 @@
 - [ ] **更新链兼容性**：验证 manifest、签名校验、下载和回滚行为后再设计更新适配器。
 - [ ] **桌面打包**：完成 provider 和安全边界验证后，生成可安装的 Electron 构建产物。
 
+## 后续目标与完成条件
+
+1. **真实本地 ASR**
+   - 安装 `services/local-asr/requirements.txt` 中的依赖，并准备用户授权的 Whisper/Vosk 模型目录。
+   - 运行 `/healthz` 和 `/transcribe`，用真实语音样本验证语言、空音频、超时、模型错误和重复会话。
+   - 记录识别延迟、CPU/内存占用和错误恢复；没有模型或只有固定 fixture 时不能标记完成。
+
+2. **物理音频设备**
+   - 在真实 Linux、Windows 或 macOS 设备验证权限申请、设备枚举、拔插、设备切换、暂停/恢复和长时间采集。
+   - 保存不含原始音频和设备隐私信息的验收报告；合成设备测试只能作为自动化回归。
+
+3. **系统音频边界**
+   - 在具备平台权限的环境验证桌面回放采集的实际样本是否能进入受控 provider。
+   - 分别记录 Windows display-media、Linux PipeWire、macOS System Audio Recording 的权限和失败行为。
+   - 保持 Dashboard-only 权限边界，未通过实际样本验证前只报告 `potential` 或 `unavailable`。
+
+4. **Windows 原版动态对照**
+   - 使用授权 Windows x64 VM，先执行 preflight 的样本 SHA-256 检查，再记录安装器、主进程、`agent-windows.exe` 和 DLL 的进程/文件/注册表边界。
+   - 捕获并脱敏 stdin/stdout JSON 行协议、录音/屏幕采集生命周期和网络请求；任何 hash 不匹配都停止动态阶段。
+
+5. **更新链兼容性**
+   - 取得授权的 manifest、签名公钥、安装包和失败样本，验证版本选择、签名校验、断点/重试和回滚。
+   - 在证据足够前不接入原版 generic updater URL；最终实现必须有离线签名失败和回滚测试。
+
+6. **可安装桌面发布物**
+   - 在 Linux bundle 之外生成可安装格式，并验证启动、卸载、资源完整性和最小权限。
+   - 之后再处理 Windows/macOS 安装包和代码签名；每种平台都必须有对应 CI 或授权机器上的 smoke 证据。
+
 ## 已完成
 
 - [x] Electron Dashboard、Overlay 和安全 Preload bridge。
