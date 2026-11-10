@@ -51,6 +51,8 @@ jobs:
       - name: Install desktop test dependencies
         run: npm ci
       - name: Exercise real Electron with a synthetic WAV
+        env:
+          DEBUG: pw:browser
         shell: bash
         run: |
           set +e
