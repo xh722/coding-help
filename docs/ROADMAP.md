@@ -39,3 +39,5 @@
 - [x] 可选 loopback ASR 适配器：仅允许 localhost/127.0.0.1/::1，默认关闭，失败不泄漏响应内容。
 - [x] 设备变更监听与选择器回退；Linux x64 runtime bundle、SHA-256 manifest 和 bundle smoke。
 - [x] 系统音频只读能力探测；不会申请屏幕/摄像头权限或启动音频流。
+- [x] 本地 ASR 协议参考 fixture：真实 loopback HTTP、WAV 校验和固定响应；不冒充实际语音识别模型。
+- [x] 物理硬件只读预检：确认当前容器无 `/dev/snd`、无 ALSA 声卡和不可用 PulseAudio；物理验收仍阻塞。

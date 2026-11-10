@@ -96,6 +96,7 @@ npm test
 - 麦克风 `devicechange` 自动刷新、设备监听解绑和拔出设备回退。
 - Linux x64 bundle 的 runtime 复制、SHA-256 manifest、清单校验和应用资源排除。
 - 系统音频能力探测、平台提示、无源/错误结果和 Dashboard-only IPC 限制。
+- loopback ASR 参考 fixture 的真实 HTTP/WAV 验证；fixture 固定返回文本，不宣称语音识别。
 - loopback ASR 地址校验、PCM WAV 封装、返回文本校验、超时、停止取消、请求上限和错误脱敏。
 
 `npm run smoke` 使用真实 Electron 运行桌面流程（需要显示服务；无显示器的 Linux 使用 `xvfb-run -a npm run smoke`）。文件选择器返回合成 WAV；麦克风由 Chromium 合成媒体设备提供，经过真实 AudioWorklet、Preload 和主进程验证。覆盖采集、暂停释放、恢复重连、停止、刷新、退出登录，以及摄像头/Overlay/非采集状态拒绝。不录制物理麦克风，不跳过权限处理。
@@ -219,4 +220,4 @@ Windows 原版动态验证已按要求记为待办并跳过，不阻塞上述标
 
 ## 最终验证
 
-PCM/WAV 阶段证据见 [音频阶段验证报告](reports/audio-input-verification-2026-11-10.md)；麦克风实现、测试结果和未验证范围见 [麦克风阶段验证报告](reports/microphone-verification-2026-11-10.md)；可选 ASR 适配器见 [本地 ASR 验证报告](reports/local-asr-adapter-verification-2026-11-10.md)；bundle 验证见 [Linux bundle 报告](reports/linux-bundle-verification-2026-11-10.md)；系统音频探测见 [系统音频报告](reports/system-audio-capability-verification-2026-11-10.md)。当前全量门禁为 123 项 Node 测试、44 个 JS 文件语法检查、Linux bundle 清单校验和真实 Electron smoke。提交作者邮箱为 `19856850715@163.com`。
+PCM/WAV 阶段证据见 [音频阶段验证报告](reports/audio-input-verification-2026-11-10.md)；麦克风实现、测试结果和未验证范围见 [麦克风阶段验证报告](reports/microphone-verification-2026-11-10.md)；可选 ASR 适配器见 [本地 ASR 验证报告](reports/local-asr-adapter-verification-2026-11-10.md)；bundle 验证见 [Linux bundle 报告](reports/linux-bundle-verification-2026-11-10.md)；系统音频探测见 [系统音频报告](reports/system-audio-capability-verification-2026-11-10.md)；物理设备检查见 [硬件验收报告](reports/physical-audio-hardware-verification-2026-11-10.md)。当前全量门禁为 125 项 Node 测试、46 个 JS 文件语法检查、Linux bundle 清单校验和真实 Electron smoke。提交作者邮箱为 `19856850715@163.com`。
