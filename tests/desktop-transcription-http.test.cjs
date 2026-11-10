@@ -17,7 +17,7 @@ test('configured loopback ASR is awaited at stop and replaces demo text', async 
   const requests = []; const events = [];
   const deps = createAppDependencies({
     audio: fakeAudio(), transcriptionEndpoint: 'http://127.0.0.1:43123/transcribe',
-    transcriptionFetch: async (url, options) => { requests.push({ url, options }); return { ok: true, status: 200, async text() { return JSON.stringify({ text: 'local answer' }); } }; },
+    transcriptionFetch: async (url, options) => { requests.push({ url, options }); return new Response(JSON.stringify({ text: 'local answer' })); },
     auth: { getSession: () => ({ accessToken: 'test' }) }, sessionApi: { create: async () => ({ id: 'saved' }), append: async (_t, _id, event) => events.push(event) },
   });
   deps.windows.dashboard = { isDestroyed: () => false, webContents: { send: (_channel, event) => events.push(event) } };

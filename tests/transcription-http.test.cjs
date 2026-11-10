@@ -8,7 +8,7 @@ const { createLocalHttpTranscriptionProvider } = require('../packages/providers/
 const flush = async () => { for (let i = 0; i < 8; i++) await Promise.resolve(); };
 
 function fetchResponse(body, options = {}) {
-  return { ok: options.ok !== false, status: options.status || 200, async text() { return JSON.stringify(body); } };
+  return new Response(JSON.stringify(body), { status: options.status || 200, headers: { 'content-type': 'application/json' } });
 }
 
 test('local HTTP ASR accepts loopback only and rejects credentials/remote endpoints', () => {
@@ -56,13 +56,28 @@ test('response, timeout and network errors are static and do not leak bodies or 
   assert.equal(events.at(-1).code, 'TRANSCRIPTION_TIMEOUT'); provider.stop();
 });
 
+test('non-success responses with synchronous body cancellation stay on the static error path', async () => {
+  let cancelled = false;
+  const events = [];
+  const provider = createLocalHttpTranscriptionProvider({
+    endpoint: 'http://localhost/transcribe',
+    fetchImpl: async () => ({ ok: false, body: { cancel() { cancelled = true; } } }),
+  });
+  provider.start({ emit: (event) => events.push(event) });
+  provider.pushAudio(new Uint8Array([0, 0]));
+  await provider.finishAudio();
+  assert.equal(cancelled, true);
+  assert.equal(events.at(-1).code, 'TRANSCRIPTION_UNAVAILABLE');
+  provider.stop();
+});
+
 test('response JSON is bounded before parsing and malformed responses use a distinct static code', async () => {
   let cancelled = false; let reads = 0;
   const body = { getReader() { return { async read() { reads++; return { done: false, value: new Uint8Array(300 * 1024) }; }, async cancel() { cancelled = true; } }; } };
   const events = []; const provider = createLocalHttpTranscriptionProvider({ endpoint: 'http://localhost/transcribe', fetchImpl: async () => ({ ok: true, body }) });
   provider.start({ emit: (event) => events.push(event) }); provider.pushAudio(new Uint8Array([0, 0])); await provider.finishAudio();
   assert.equal(events.at(-1).code, 'TRANSCRIPTION_BAD_RESPONSE'); assert.equal(cancelled, true); assert.equal(reads, 1);
-  const malformed = []; const second = createLocalHttpTranscriptionProvider({ endpoint: 'http://localhost/transcribe', fetchImpl: async () => ({ ok: true, async text() { return '{broken'; } }) });
+  const malformed = []; const second = createLocalHttpTranscriptionProvider({ endpoint: 'http://localhost/transcribe', fetchImpl: async () => new Response('{broken') });
   second.start({ emit: (event) => malformed.push(event) }); second.pushAudio(new Uint8Array([0, 0])); await second.finishAudio();
   assert.equal(malformed.at(-1).code, 'TRANSCRIPTION_BAD_RESPONSE');
 });
@@ -96,4 +111,59 @@ test('default fetch path accepts a real loopback JSON response body', async (t) 
   const address = server.address(); const provider = createLocalHttpTranscriptionProvider({ endpoint: `http://127.0.0.1:${address.port}/transcribe` });
   const events = []; provider.start({ emit: (event) => events.push(event) }); provider.pushAudio(new Uint8Array([0, 0])); await provider.finishAudio();
   assert.equal(events.at(-1).type, 'transcript.final'); assert.equal(events.at(-1).text, 'real loopback response'); provider.stop();
+});
+
+test('a cancelled request cannot publish into a new session after its body finishes', async () => {
+  let finishBody; const lateBody = new Promise((resolve) => { finishBody = resolve; });
+  const events = []; let calls = 0;
+  const provider = createLocalHttpTranscriptionProvider({ endpoint: 'http://localhost/transcribe', fetchImpl: async () => ++calls === 1
+    ? new Response(new ReadableStream({ async start(controller) { await lateBody; controller.enqueue(new TextEncoder().encode(JSON.stringify({ text: 'old' }))); controller.close(); } }))
+    : fetchResponse({ text: 'new' }) });
+  provider.start({ emit: (event) => events.push(event) }); provider.pushAudio(new Uint8Array(2));
+  const old = provider.finishAudio(); await flush(); provider.stop();
+  provider.start({ emit: (event) => events.push(event) }); provider.pushAudio(new Uint8Array(2));
+  finishBody(); await old;
+  await provider.finishAudio();
+  assert.deepEqual(events.filter((e) => e.type === 'transcript.final').map((e) => e.text), ['new']);
+  provider.stop();
+});
+
+test('a pending response held by pause is delivered only on resume', async () => {
+  let resolve; const result = new Promise((yes) => { resolve = yes; }); const events = [];
+  const provider = createLocalHttpTranscriptionProvider({ endpoint: 'http://localhost/transcribe', fetchImpl: () => result });
+  provider.start({ emit: (e) => events.push(e) }); provider.pushAudio(new Uint8Array(2));
+  const pending = provider.finishAudio(); provider.pause(); resolve(fetchResponse({ text: 'paused result' })); await pending;
+  assert.equal(events.length, 0); provider.resume();
+  assert.equal(events.at(-1).text, 'paused result'); provider.stop();
+});
+
+test('valid silence produces no fabricated transcript and format changes cannot corrupt buffered audio', async () => {
+  const events = []; const provider = createLocalHttpTranscriptionProvider({ endpoint: 'http://localhost/transcribe', fetchImpl: async () => fetchResponse({ text: '' }) });
+  provider.start({ emit: (e) => events.push(e) }); provider.pushAudio(new Uint8Array(2));
+  assert.equal(provider.setAudioFormat({ sampleRate: 48000, channels: 1, bitsPerSample: 16 }), false);
+  provider.stop(); events.length = 0; provider.start({ emit: (e) => events.push(e) }); provider.pushAudio(new Uint8Array(2));
+  await provider.finishAudio(); assert.equal(provider.getState(), 'completed');
+  assert.equal(events.some((e) => ['transcript.final', 'transcript.error'].includes(e.type)), false);
+  provider.stop();
+});
+
+test('WAV encoding includes RIFF padding for odd unsigned PCM byte lengths', () => {
+  const { createWav } = require('../packages/providers/transcription-http.cjs');
+  const wav = createWav(Buffer.from([128, 129, 130]), { sampleRate: 8000, channels: 1, bitsPerSample: 8 });
+  assert.equal(wav.length, 48); assert.equal(wav.readUInt32LE(4) + 8, wav.length);
+  assert.equal(wav.readUInt32LE(40), 3); assert.equal(wav.at(-1), 0);
+});
+
+test('loopback transcription refuses HTTP redirects before resending audio', async (t) => {
+  let redirected = 0;
+  const server = http.createServer((request, response) => {
+    if (request.url === '/redirected') redirected++;
+    request.resume();
+    if (request.url === '/transcribe') response.writeHead(307, { location: '/redirected' }).end();
+    else response.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ text: 'redirected' }));
+  });
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve)); t.after(() => { server.closeAllConnections(); server.close(); });
+  const events = []; const provider = createLocalHttpTranscriptionProvider({ endpoint: `http://127.0.0.1:${server.address().port}/transcribe` });
+  provider.start({ emit: (e) => events.push(e) }); provider.pushAudio(new Uint8Array(2)); await provider.finishAudio();
+  assert.equal(redirected, 0); assert.equal(events.at(-1).code, 'TRANSCRIPTION_UNAVAILABLE'); provider.stop();
 });

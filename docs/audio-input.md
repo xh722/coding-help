@@ -16,7 +16,7 @@ CODING_HELP_TRANSCRIPTION_URL=http://127.0.0.1:43123/transcribe npm start
 {"text":"recognized text"}
 ```
 
-返回文本会去除首尾空格并限制长度；空响应、非 JSON、HTTP 错误、网络错误和超时都会产生固定错误提示。原始响应、服务地址中的凭据和音频内容不会写入历史。暂停期间不发送，停止会取消等待中的请求。状态栏会显示 `LOCAL ASR · loopback`；未配置或配置无效时显示 `DEMO · no speech recognition`。
+返回文本会去除首尾空格并限制长度；空响应、非 JSON、HTTP 错误、网络错误和超时都会产生固定错误提示。请求不会跟随重定向，响应体有 256 KiB 上限；原始响应、服务地址中的凭据和音频内容不会写入历史。暂停期间不发送，停止会取消等待中的请求，旧会话的迟到响应不会写入新会话。状态栏会显示 `LOCAL ASR · loopback`；未配置或配置无效时显示 `DEMO · no speech recognition`。
 
 该适配器只定义本地服务协议，不代表仓库已包含 Whisper/Vosk 等识别模型。模型服务的安装、模型文件、语言设置和准确率由用户自行负责。
 
@@ -37,7 +37,7 @@ WHISPER_MODEL=/path/to/model npm run asr:faster-whisper
 CODING_HELP_TRANSCRIPTION_URL=http://127.0.0.1:43123/transcribe npm start
 ```
 
-服务默认使用 CPU `int8`，只监听 loopback；也可设置 `WHISPER_DEVICE`、`WHISPER_COMPUTE_TYPE`。模型路径缺失、依赖未安装或模型加载失败时服务仍可启动用于 `/healthz` 诊断，但返回 503，不会返回固定文本或伪造识别。需要允许下载命名模型时显式传 `--allow-model-download`，仓库不会替用户下载模型。
+服务默认使用 CPU `int8` 和 4 个 CPU 线程，只监听 loopback；也可设置 `WHISPER_DEVICE`、`WHISPER_COMPUTE_TYPE`。服务严格校验 PCM WAV 和 `Content-Length`，限制并发与推理资源。模型路径缺失、依赖未安装或模型加载失败时服务仍可启动用于 `/healthz` 诊断，但返回 503，不会返回固定文本或伪造识别。需要允许下载命名模型时显式传 `--allow-model-download`，仓库不会替用户下载模型。
 
 ## 使用麦克风
 

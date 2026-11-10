@@ -3,6 +3,7 @@
 const { randomUUID } = require('node:crypto');
 
 const DEFAULT_MAX_BYTES = 32 * 1024 * 1024;
+const MAX_CHUNKS = 65536;
 const MAX_RESPONSE_BYTES = 256 * 1024;
 const MAX_TEXT_LENGTH = 20000;
 const MESSAGES = Object.freeze({
@@ -16,9 +17,10 @@ const MESSAGES = Object.freeze({
 function isLoopbackEndpoint(endpoint) {
   let url;
   try { url = new URL(endpoint); } catch { throw new TypeError('Transcription endpoint must be a valid loopback URL.'); }
-  if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password) throw new TypeError('Transcription endpoint must be a credential-free loopback URL.');
+  if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password || url.search || url.hash) throw new TypeError('Transcription endpoint must be a credential-free loopback URL without query or fragment.');
   const host = url.hostname.toLowerCase().replace(/^\[|\]$/g, '');
   if (!['localhost', '127.0.0.1', '::1'].includes(host)) throw new TypeError('Transcription endpoint must use a loopback host.');
+  if (host === 'localhost') url.hostname = '127.0.0.1';
   return url;
 }
 
@@ -32,13 +34,14 @@ function validFormat(format = {}) {
 function createWav(data, format) {
   const blockAlign = format.channels * format.bitsPerSample / 8;
   if (!validFormat(format) || data.length % blockAlign !== 0) throw new TypeError('Invalid PCM format.');
+  const padding = Buffer.alloc(data.length % 2);
   const header = Buffer.alloc(44);
-  header.write('RIFF', 0, 'ascii'); header.writeUInt32LE(36 + data.length, 4); header.write('WAVE', 8, 'ascii');
+  header.write('RIFF', 0, 'ascii'); header.writeUInt32LE(36 + data.length + padding.length, 4); header.write('WAVE', 8, 'ascii');
   header.write('fmt ', 12, 'ascii'); header.writeUInt32LE(16, 16); header.writeUInt16LE(1, 20);
   header.writeUInt16LE(format.channels, 22); header.writeUInt32LE(format.sampleRate, 24);
   header.writeUInt32LE(format.sampleRate * blockAlign, 28); header.writeUInt16LE(blockAlign, 32);
   header.writeUInt16LE(format.bitsPerSample, 34); header.write('data', 36, 'ascii'); header.writeUInt32LE(data.length, 40);
-  return Buffer.concat([header, data]);
+  return Buffer.concat([header, data, padding]);
 }
 
 function badResponse(message = 'Invalid transcription response.') {
@@ -71,12 +74,6 @@ async function readBoundedJson(response) {
     }
     try { return JSON.parse(decoder.decode(Buffer.concat(parts))); } catch { throw badResponse(); }
   }
-  if (typeof response?.text === 'function') {
-    let text;
-    try { text = await response.text(); } catch { throw badResponse(); }
-    if (Buffer.byteLength(text, 'utf8') > MAX_RESPONSE_BYTES) throw badResponse('Transcription response is too large.');
-    try { return JSON.parse(text); } catch { throw badResponse(); }
-  }
   throw badResponse('Transcription response body is unavailable.');
 }
 
@@ -91,74 +88,109 @@ function createLocalHttpTranscriptionProvider({
   const setTimer = typeof clock.setTimeout === 'function' ? clock.setTimeout.bind(clock) : globalThis.setTimeout.bind(globalThis);
   const clearTimer = typeof clock.clearTimeout === 'function' ? clock.clearTimeout.bind(clock) : globalThis.clearTimeout.bind(globalThis);
   const now = typeof clock.now === 'function' ? clock.now.bind(clock) : Date.now;
-  let state = 'idle'; let emit = () => {}; let buffer = Buffer.alloc(0); let bytes = 0; let chunks = 0;
-  let format = { sampleRate: 16000, channels: 1, bitsPerSample: 16, format: 'pcm_s16le' };
-  let finishPromise = null; let controller = null; let timeout = null; let timedOut = false; let inputEnded = false; let requestId = null;
-
-  function event(type, fields = {}) { emit({ type, provider: 'local-http', timestamp: now(), ...fields }); }
-  function error(code) { event('transcript.error', { code, message: MESSAGES[code] || MESSAGES.TRANSCRIPTION_UNAVAILABLE }); }
-  function clearRequest() { if (timeout !== null) clearTimer(timeout); timeout = null; controller = null; }
-  function resetBuffer() { buffer = Buffer.alloc(0); bytes = 0; chunks = 0; }
-
-  async function request() {
-    if (!buffer.length || state === 'stopped') return;
-    state = 'transcribing'; requestId = idFactory(); controller = new AbortController(); timedOut = false;
-    timeout = setTimer(() => { timedOut = true; controller?.abort(); }, requestTimeoutMs); timeout?.unref?.();
-    try {
-      const body = createWav(buffer, format);
-      const response = await fetchImpl(url, {
-        method: 'POST',
-        headers: { accept: 'application/json', 'content-type': 'audio/wav', 'x-coding-help-request': requestId },
-        body, signal: controller.signal,
-      });
-      if (state === 'stopped') return;
-      if (response?.ok === false) throw new Error('transcription response unavailable');
-      let result;
-      try { result = await readBoundedJson(response); } catch (error) { throw error?.code === 'TRANSCRIPTION_BAD_RESPONSE' ? error : badResponse(); }
-      const text = typeof result?.text === 'string' ? result.text.trim() : '';
-      if (!text || text.length > MAX_TEXT_LENGTH) throw badResponse();
-      state = 'completed'; event('transcript.final', { text, demo: false });
-    } catch (cause) {
-      if (state === 'stopped') return;
-      state = 'error'; error(timedOut ? 'TRANSCRIPTION_TIMEOUT' : (cause?.code === 'TRANSCRIPTION_BAD_RESPONSE' ? 'TRANSCRIPTION_BAD_RESPONSE' : 'TRANSCRIPTION_UNAVAILABLE'));
-    } finally { clearRequest(); requestId = null; }
+  let current = null;
+  const isCurrent = (run) => current === run && run.state !== 'stopped';
+  function event(run, type, fields = {}) {
+    if (isCurrent(run)) run.emit({ type, provider: 'local-http', timestamp: now(), ...fields });
   }
-
+  function fail(run, code) {
+    run.parts = []; run.state = 'error';
+    event(run, 'transcript.error', { code, message: MESSAGES[code] });
+  }
+  function deliver(run) {
+    if (!isCurrent(run) || run.paused || run.result === undefined) return;
+    const text = run.result; run.result = undefined; run.state = 'completed';
+    event(run, text ? 'transcript.final' : 'transcript.empty', { text, demo: false });
+  }
+  async function request(run) {
+    run.state = 'transcribing'; run.controller = new AbortController();
+    const signal = run.controller.signal;
+    let cancel;
+    const aborted = new Promise((_resolve, reject) => {
+      cancel = () => reject(Object.assign(new Error('Cancelled'), { code: run.timedOut ? 'TRANSCRIPTION_TIMEOUT' : 'ABORTED' }));
+      signal.addEventListener('abort', cancel, { once: true });
+    });
+    const timer = setTimer(() => { run.timedOut = true; run.controller.abort(); }, requestTimeoutMs);
+    try {
+      const body = createWav(Buffer.concat(run.parts, run.bytes), run.format); run.parts = [];
+      // Redirects must never forward recorded audio to another endpoint.
+      const result = await Promise.race([aborted, (async () => {
+        const response = await fetchImpl(url, {
+          method: 'POST', redirect: 'error',
+          headers: { accept: 'application/json', 'content-type': 'audio/wav', 'x-coding-help-request': idFactory() },
+          body, signal,
+        });
+        if (signal.aborted) {
+          Promise.resolve(response?.body?.cancel?.()).catch(() => {});
+          throw new Error('Cancelled');
+        }
+        if (response?.ok !== true) {
+          Promise.resolve(response?.body?.cancel?.()).catch(() => {});
+          throw new Error('Service unavailable');
+        }
+        return readBoundedJson(response);
+      })()]);
+      if (!isCurrent(run)) return;
+      if (typeof result?.text !== 'string' || result.text.length > MAX_TEXT_LENGTH) throw badResponse();
+      run.result = result.text.trim(); deliver(run);
+    } catch (cause) {
+      if (!isCurrent(run)) return;
+      fail(run, run.timedOut ? 'TRANSCRIPTION_TIMEOUT' : (cause?.code === 'TRANSCRIPTION_BAD_RESPONSE' ? 'TRANSCRIPTION_BAD_RESPONSE' : 'TRANSCRIPTION_UNAVAILABLE'));
+    } finally {
+      clearTimer(timer); signal.removeEventListener('abort', cancel);
+      run.controller.abort(); run.controller = null; run.parts = [];
+    }
+  }
+  function finishAudio() {
+    const run = current;
+    if (!run) return Promise.resolve();
+    if (run.completion) return run.completion;
+    if (!['active', 'paused'].includes(run.state)) return Promise.resolve();
+    run.inputEnded = true;
+    if (run.paused) return Promise.resolve();
+    if (!run.bytes) { run.state = 'completed'; return Promise.resolve(); }
+    run.completion = request(run); return run.completion;
+  }
   return {
     start(options = {}) {
-      if (state === 'active' || state === 'paused' || state === 'transcribing') return false;
-      state = 'active'; emit = typeof options.emit === 'function' ? options.emit : () => {};
-      resetBuffer(); finishPromise = null; inputEnded = false; return true;
-    },
-    pause() { if (state === 'active') state = 'paused'; },
-    resume() { if (state === 'paused') { state = 'active'; if (inputEnded) return this.finishAudio(); } return undefined; },
-    stop() {
-      if (state === 'stopped' && !buffer.length) return;
-      state = 'stopped'; inputEnded = true; controller?.abort(); clearRequest(); finishPromise = null; emit = () => {}; resetBuffer();
-    },
-    pushAudio(chunk) {
-      if (!(chunk instanceof Uint8Array) || !chunk.byteLength || chunk.byteLength % (format.channels * format.bitsPerSample / 8) !== 0) return false;
-      if (state !== 'active') return false;
-      if (bytes + chunk.byteLength > maxBytes) { state = 'error'; error('TRANSCRIPTION_PAYLOAD_TOO_LARGE'); return false; }
-      buffer = Buffer.concat([buffer, Buffer.from(chunk)]); bytes += chunk.byteLength; chunks += 1; return true;
-    },
-    finishAudio() {
-      if (finishPromise) return finishPromise;
-      if (!['active', 'paused'].includes(state)) return Promise.resolve();
-      inputEnded = true; if (state === 'paused') return Promise.resolve();
-      if (!buffer.length) { state = 'completed'; return Promise.resolve(); }
-      finishPromise = request(); return finishPromise;
-    },
-    setAudioFormat(next = {}) {
-      if (!validFormat(next)) { error('TRANSCRIPTION_INVALID_FORMAT'); return false; }
-      if (buffer.length && (next.channels !== format.channels || next.bitsPerSample !== format.bitsPerSample)) return false;
-      format = { sampleRate: next.sampleRate, channels: next.channels, bitsPerSample: next.bitsPerSample, format: next.format || (next.bitsPerSample === 8 ? 'pcm_u8' : `pcm_s${next.bitsPerSample}le`) };
+      if (current && ['active', 'paused', 'transcribing'].includes(current.state)) return false;
+      current = { state: 'active', emit: typeof options.emit === 'function' ? options.emit : () => {},
+        parts: [], bytes: 0, chunks: 0, paused: false, inputEnded: false,
+        format: { sampleRate: 16000, channels: 1, bitsPerSample: 16 } };
       return true;
     },
-    getAudioStats: () => ({ bytes, chunks }),
-    getMode: () => 'local-http',
-    getState: () => state,
-    getEndpoint: () => url,
+    pause() {
+      if (current && ['active', 'transcribing'].includes(current.state)) { current.paused = true; current.state = 'paused'; }
+    },
+    resume() {
+      const run = current;
+      if (!run || run.state !== 'paused') return;
+      run.paused = false; run.state = run.completion ? 'transcribing' : 'active';
+      deliver(run); if (run.inputEnded) return finishAudio();
+    },
+    stop() {
+      if (!current) return;
+      current.state = 'stopped'; current.controller?.abort(); current.parts = []; current.result = undefined;
+      current.emit = () => {}; current.bytes = 0; current.chunks = 0;
+    },
+    pushAudio(chunk) {
+      const run = current;
+      if (!run || run.state !== 'active' || run.inputEnded) return false;
+      if (!(chunk instanceof Uint8Array) || !chunk.byteLength || chunk.byteLength % (run.format.channels * run.format.bitsPerSample / 8)) return false;
+      if (run.bytes + chunk.byteLength > maxBytes || run.chunks >= MAX_CHUNKS) { fail(run, 'TRANSCRIPTION_PAYLOAD_TOO_LARGE'); return false; }
+      run.parts.push(Buffer.from(chunk)); run.bytes += chunk.byteLength; run.chunks++; return true;
+    },
+    finishAudio,
+    setAudioFormat(next = {}) {
+      const run = current;
+      if (!run || !['active', 'paused'].includes(run.state)) return false;
+      if (!validFormat(next) || (run.bytes && ['sampleRate', 'channels', 'bitsPerSample'].some((key) => next[key] !== run.format[key]))) {
+        fail(run, 'TRANSCRIPTION_INVALID_FORMAT'); return false;
+      }
+      run.format = { sampleRate: next.sampleRate, channels: next.channels, bitsPerSample: next.bitsPerSample }; return true;
+    },
+    getAudioStats: () => ({ bytes: current?.bytes || 0, chunks: current?.chunks || 0 }),
+    getMode: () => 'local-http', getState: () => current?.state || 'idle', getEndpoint: () => url,
   };
 }
 
