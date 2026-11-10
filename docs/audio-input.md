@@ -32,7 +32,7 @@ fixture 只校验 PCM WAV 并返回固定文本，**不是语音识别模型**�
 如果用户已安装 `faster-whisper` 并拥有本地模型目录，可以运行仓库提供的可选服务：
 
 ```bash
-python3 -m pip install faster-whisper
+python3 -m pip install -r services/local-asr/requirements.txt
 WHISPER_MODEL=/path/to/model npm run asr:faster-whisper
 CODING_HELP_TRANSCRIPTION_URL=http://127.0.0.1:43123/transcribe npm start
 ```

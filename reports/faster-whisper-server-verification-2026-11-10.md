@@ -19,8 +19,8 @@ python3 services/local-asr/faster_whisper_server.py --help
 help output verified
 ```
 
-本机没有 `faster_whisper` Python 包或模型权重，因此没有声称真实语音识别、语言准确率或延迟通过。本轮在仓库外的 Python 3.10 虚拟环境中尝试安装 `faster-whisper==1.2.1`；下载其 `av` 二进制依赖时网络传输未完成，已停止临时安装进程，仓库没有新增依赖或模型文件。安装依赖和模型后，用 `npm run asr:faster-whisper` 启动，再配置 `CODING_HELP_TRANSCRIPTION_URL` 连接桌面端。
+本机没有 `faster_whisper` Python 包或模型权重，因此没有声称真实语音识别、语言准确率或延迟通过。本轮在仓库外的 Python 3.10 虚拟环境中尝试安装 `faster-whisper==1.2.1`；下载其 `av` 二进制依赖时网络传输未完成，已停止临时安装进程，仓库没有新增依赖或模型文件。依赖版本已记录在 [`services/local-asr/requirements.txt`](../services/local-asr/requirements.txt)。安装依赖和模型后，用 `npm run asr:faster-whisper` 启动，再配置 `CODING_HELP_TRANSCRIPTION_URL` 连接桌面端。
 
-Node 全量测试为 132/132，Linux bundle manifest 为 104 个文件，bundle source revision 校验通过。此前同一 bundle 流程的 Electron smoke 已通过；本轮运行环境没有 Xvfb，未重复启动桌面 smoke。上述证据验证服务边界和集成协议，不替代模型质量验收。
+Node 全量测试为 132/132，Linux bundle manifest 为 105 个文件，bundle source revision 校验通过。此前同一 bundle 流程的 Electron smoke 已通过；本轮运行环境没有 Xvfb，未重复启动桌面 smoke。上述证据验证服务边界和集成协议，不替代模型质量验收。
 
 实现参考 faster-whisper 官方 API：`WhisperModel(model, device="cpu", compute_type="int8")` 和 `model.transcribe(...)`。见 [官方 README](https://github.com/SYSTRAN/faster-whisper)。

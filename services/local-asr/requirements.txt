@@ -1,0 +1,2 @@
+# Optional runtime for the loopback ASR service; models remain user-managed.
+faster-whisper==1.2.1

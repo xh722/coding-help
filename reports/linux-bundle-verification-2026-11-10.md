@@ -16,7 +16,7 @@ Manifest files: 101
 Electron: 39.8.10
 
 npm run check:linux-bundle
-Linux bundle verified: 104 files, SHA-256 manifest matches.
+Linux bundle verified: 105 files, SHA-256 manifest matches.
 ```
 
 同一 bundle 的 runtime 已运行完整 Electron smoke：WAV 64000 字节、合成麦克风 PCM、权限拒绝、暂停释放/恢复重连、停止、刷新和退出登录均通过。CI 的 node-tests job 也执行 bundle 构建和校验。
