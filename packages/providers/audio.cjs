@@ -58,22 +58,24 @@ function createAudioCaptureProvider({
   channels = 1,
   chunkDurationMs = 20,
 } = {}) {
-  const setTimeout = (clock.setTimeout || setTimeout).bind(clock);
-  const clearTimeout = (clock.clearTimeout || clearTimeout).bind(clock);
+  const setTimeoutFn = typeof clock.setTimeout === 'function' ? clock.setTimeout.bind(clock) : globalThis.setTimeout.bind(globalThis);
+  const clearTimeoutFn = typeof clock.clearTimeout === 'function' ? clock.clearTimeout.bind(clock) : globalThis.clearTimeout.bind(globalThis);
   const now = typeof clock.now === 'function' ? clock.now.bind(clock) : Date.now;
   let state = 'idle';
   let timer = null;
   let index = 0;
   let prepared = null;
+  let bitsPerSample = 16;
   let onEvent = () => {};
   let onChunk = () => {};
 
   const emit = (type, extra = {}) => onEvent({ type, ...extra });
-  const metadata = () => ({ source, sampleRate, channels, format: 'pcm_s16le', timestamp: now() });
+  const format = () => bitsPerSample === 8 ? 'pcm_s8' : `pcm_s${bitsPerSample}le`;
+  const metadata = () => ({ source, sampleRate, channels, format: format(), timestamp: now() });
 
   const schedule = () => {
     if (state !== 'active' || index >= prepared.length) return;
-    timer = setTimeout(() => {
+    timer = setTimeoutFn(() => {
       timer = null;
       if (state !== 'active') return;
       const chunk = prepared[index++];
@@ -92,6 +94,7 @@ function createAudioCaptureProvider({
       const wav = readWavFile(filePath, fs);
       sampleRate = wav.sampleRate;
       channels = wav.channels;
+      bitsPerSample = wav.bitsPerSample;
       const bytesPerSecond = wav.sampleRate * wav.channels * (wav.bitsPerSample / 8);
       const bytesPerChunk = Math.max(1, Math.round(bytesPerSecond * (chunkDurationMs / 1000)));
       const result = [];
@@ -122,7 +125,7 @@ function createAudioCaptureProvider({
       }
       index = 0;
       state = 'active';
-      emit('audio.started', { source, sampleRate, channels, format: 'pcm_s16le' });
+      emit('audio.started', { source, sampleRate, channels, format: format() });
       if (prepared.length === 0) {
         state = 'stopped';
         emit('audio.stopped', { source });
@@ -131,7 +134,7 @@ function createAudioCaptureProvider({
     pause() {
       if (state !== 'active') return;
       state = 'paused';
-      if (timer !== null) clearTimeout(timer);
+      if (timer !== null) clearTimeoutFn(timer);
       timer = null;
       emit('audio.paused', { source });
     },
@@ -143,7 +146,7 @@ function createAudioCaptureProvider({
     },
     stop() {
       if (state === 'stopped' || state === 'idle') return;
-      if (timer !== null) clearTimeout(timer);
+      if (timer !== null) clearTimeoutFn(timer);
       timer = null;
       state = 'stopped';
       emit('audio.stopped', { source });

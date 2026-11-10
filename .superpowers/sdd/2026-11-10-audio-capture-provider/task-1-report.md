@@ -13,3 +13,5 @@ Verification:
 - `npm test`: the new audio suite and 7 other suites pass; existing `tests/local-api.test.cjs` and `tests/local-flow.test.cjs` fail during their existing top-level setup before registering subtests.
 
 Concern: real Windows device capture remains intentionally unsupported and reports `UNSUPPORTED_SOURCE`, per the plan.
+
+Review follow-up: timer fallback now safely uses global timers when an injected clock only supplies `now`; WAV-derived metadata now preserves bit depth (`pcm_s8`, `pcm_s16le`, `pcm_s24le`, or `pcm_s32le`). Regression coverage was added for both cases.

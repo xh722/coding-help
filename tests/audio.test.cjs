@@ -72,6 +72,13 @@ test('deterministic source emits ordered chunks at configured intervals', () => 
   assert.deepEqual(events.map((event) => event.type), ['audio.started', 'audio.stopped']);
 });
 
+test('clock injection may provide now without timer methods', () => {
+  const events = [];
+  const provider = createAudioCaptureProvider({ source: 'deterministic', chunks: [], clock: { now: () => 1000 } });
+  provider.start({ onEvent: (event) => events.push(event) });
+  assert.deepEqual(events.map((event) => event.type), ['audio.started', 'audio.stopped']);
+});
+
 test('pause and resume suspend and continue deterministic chunks', () => {
   const clock = createFakeClock();
   const received = [];
@@ -109,6 +116,17 @@ test('readWavFile parses PCM metadata and data', () => {
   assert.equal(result.channels, 2);
   assert.equal(result.bitsPerSample, 16);
   assert.deepEqual(result.data, source.subarray(44));
+});
+
+test('WAV bit depth is reflected in chunk metadata', () => {
+  const clock = createFakeClock();
+  const events = [];
+  const chunks = [];
+  const provider = createAudioCaptureProvider({ source: 'file', filePath: 'fixture.wav', fs: { readFileSync: () => wavBuffer({ bitsPerSample: 8, data: Buffer.from([5, 6]) }) }, clock, chunkDurationMs: 10 });
+  provider.start({ onEvent: (event) => events.push(event), onChunk: (chunk, metadata) => chunks.push(metadata) });
+  clock.runNext();
+  assert.equal(events[0].format, 'pcm_s8');
+  assert.equal(chunks[0].format, 'pcm_s8');
 });
 
 test('missing WAV file is reported as a structured error event', () => {
