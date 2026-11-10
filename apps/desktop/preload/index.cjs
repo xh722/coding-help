@@ -5,7 +5,7 @@ const SCHEMAS = Object.freeze({
   'auth.login': { required: ['email', 'password'], fields: { email: 'string', password: 'string' } },
   'auth.logout': { required: [], fields: {} }, 'auth.get-session': { required: [], fields: {} },
   'session.start': { required: ['title'], fields: { title: 'string', language: 'string', notes: 'string' } },
-  'session.pause': { required: [], fields: {} }, 'session.resume': { required: [], fields: {} }, 'session.stop': { required: [], fields: {} }, 'session.get-current': { required: [], fields: {} },
+  'session.pause': { required: [], fields: {} }, 'session.resume': { required: [], fields: {} }, 'session.stop': { required: [], fields: {} }, 'session.get-current': { required: [], fields: {} }, 'session.list': { required: [], fields: {} },
   'capture.get-displays': { required: [], fields: {} }, 'capture.take-screenshot': { required: [], fields: { displayId: 'string' } },
   'overlay.set-visible': { required: ['visible'], fields: { visible: 'boolean' } }, 'overlay.set-bounds': { required: ['x', 'y', 'width', 'height'], fields: { x: 'number', y: 'number', width: 'number', height: 'number' } }, 'app.get-version': { required: [], fields: {} },
 });

@@ -44,7 +44,9 @@ function createLocalApiAuthTransport({ localApi, ensureStarted, fallback, onUnav
 function createLocalSessionApiTransport({ ensureStarted }) {
   async function request(method, pathname, token, body) {
     const address = await ensureStarted();
-    const response = await fetch(`http://${address.host}:${address.port}${pathname}`, { method, headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' }, body: JSON.stringify(body) });
+    const options = { method, headers: { authorization: `Bearer ${token}` } };
+    if (body !== undefined) { options.headers['content-type'] = 'application/json'; options.body = JSON.stringify(body); }
+    const response = await fetch(`http://${address.host}:${address.port}${pathname}`, options);
     const value = response.status === 204 ? null : await response.json();
     if (!response.ok) throw new Error(value?.error?.message || 'Session API request failed');
     return value;
@@ -52,6 +54,7 @@ function createLocalSessionApiTransport({ ensureStarted }) {
   return {
     create: (token, metadata) => request('POST', '/sessions', token, metadata),
     append: (token, id, event) => request('POST', `/sessions/${encodeURIComponent(id)}/events`, token, event),
+    list: (token) => request('GET', '/sessions', token),
   };
 }
 
@@ -119,6 +122,7 @@ function createAppDependencies(options = {}) {
     'session.start': async ({ title, language, notes }) => { session.start({ title, language, notes }); apiSessionId = null; await createPersistedSession({ title, language, notes }); transcription.start({ emit }); emit({ type: 'capture.started', source: 'local' }); return session.getSnapshot(); },
     'session.pause': () => { session.pause(); transcription.pause(); emit({ type: 'session.paused', source: 'local' }); return session.getSnapshot(); }, 'session.resume': () => { session.resume(); transcription.resume(); emit({ type: 'session.resumed', source: 'local' }); return session.getSnapshot(); },
     'session.stop': () => { session.stop(); transcription.stop(); emit({ type: 'session.stopped', source: 'local' }); emit({ type: 'capture.stopped', source: 'local' }); return session.getSnapshot(); }, 'session.get-current': () => session.getSnapshot(),
+    'session.list': async () => { const token = auth.getSession?.()?.accessToken; if (!token || typeof sessionApi.list !== 'function') return []; try { return await sessionApi.list(token); } catch { return []; } },
     'capture.get-displays': () => capture.getDisplays(), 'capture.take-screenshot': ({ displayId }) => capture.takeScreenshot(displayId),
     'overlay.set-visible': ({ visible }) => { const overlay = windows.overlay; if (!overlay || overlay.isDestroyed?.()) return { ok: false, error: { code: 'OVERLAY_UNAVAILABLE', message: 'Overlay is unavailable' } }; visible ? overlay.show() : overlay.hide(); return { ok: true, visible }; },
     'overlay.set-bounds': (bounds) => { const overlay = windows.overlay; if (!overlay || overlay.isDestroyed?.()) return { ok: false, error: { code: 'OVERLAY_UNAVAILABLE', message: 'Overlay is unavailable' } }; if (![bounds.x, bounds.y, bounds.width, bounds.height].every(Number.isFinite) || bounds.width <= 0 || bounds.height <= 0) return { ok: false, error: { code: 'INVALID_BOUNDS', message: 'Invalid overlay bounds' } }; overlay.setBounds(bounds); return { ok: true, bounds: { ...bounds } }; },

@@ -11,15 +11,15 @@
 
 | 功能 | 状态 | 说明 |
 |---|---|---|
-| Electron Dashboard | 已完成 | 登录、会话控制、转写列表、建议列表、错误提示、版本显示 |
+| Electron Dashboard | 已完成 | 登录、会话控制、历史会话列表、转写列表、建议列表、错误提示、版本显示 |
 | Overlay 悬浮面板 | 已完成 | Local Mode 隐私指示器、转写、建议、录制/暂停/停止状态 |
 | 本地登录 | 已完成 | 仅接受演示账户，支持刷新、退出和过期 token |
-| 本地 API | 已完成 | loopback 绑定、登录、刷新、用户、会话、事件、结构化错误；会话/事件可持久化恢复 |
-| 会话状态机 | 已完成 | idle、active、paused、stopped、error，停止操作幂等 |
+| 本地 API | 已完成 | loopback 绑定、登录、刷新、用户、会话历史、事件、结构化错误；会话/事件可持久化恢复 |
+| 会话状态机 | 已完成 | idle、active、paused、stopped、error，停止操作幂等；生命周期事件写入历史记录 |
 | 本地转写 provider | 已完成 | 生成确定性的 partial/final transcript 事件 |
 | 本地建议 provider | 已完成 | 根据最后一条转写生成本地建议，不访问网络 |
 | 屏幕枚举 | 已完成 | 通过 Electron `desktopCapturer` 获取显示器列表 |
-| 截图 IPC | 已完成 | 能获取 PNG data URL；当前 Dashboard 还没有展示截图预览 |
+| 截图 IPC | 已完成 | 获取 PNG data URL 并在 Dashboard 中显示最新截图预览 |
 | 真实麦克风/系统音频 | 未完成 | 当前使用确定性 provider，未接入原版 Recall native agent |
 | 真实云端 AI/账户/订阅 | 未完成 | 原版服务端逻辑不在安装包中，无法从客户端完整恢复 |
 | 原版自动更新链 | 未完成 | 只保留静态逆向证据，未接入原版更新源 |
@@ -186,4 +186,4 @@ Electron 启动时会尝试启动本地 API。如果 API 因端口、权限或�
 
 ## 最终验证
 
-2026-11-10：`npm test` 通过 41/41，`npm run check`、`git diff --check` 和大文件扫描通过；最终本地重建提交作者为 `19856850715@163.com`。
+2026-11-10：`npm test` 通过 42/42，`npm run check`、`git diff --check` 和大文件扫描通过；最终本地重建提交作者为 `19856850715@163.com`。

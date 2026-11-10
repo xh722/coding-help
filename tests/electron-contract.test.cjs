@@ -191,3 +191,13 @@ test('main persists session lifecycle and provider events through the session AP
     'capture.started', 'transcript.final', 'suggestion', 'session.paused', 'session.resumed', 'session.stopped', 'capture.stopped',
   ]);
 });
+
+test('main exposes persisted session history through IPC', async () => {
+  const { createAppDependencies } = require('../apps/desktop/main/index.cjs');
+  const deps = createAppDependencies({
+    auth: { getSession: () => ({ accessToken: 'access-1' }) },
+    sessionApi: { list: async (token) => [{ id: 'saved-1', token }] },
+  });
+  const result = await deps.router.dispatch('session.list', {}, { source: 'renderer', windowId: 1 });
+  assert.deepEqual(result, [{ id: 'saved-1', token: 'access-1' }]);
+});
