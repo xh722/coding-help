@@ -186,4 +186,4 @@ Electron 启动时会尝试启动本地 API。如果 API 因端口、权限或�
 
 ## 最终验证
 
-2026-11-10：`npm test` 通过 40/40，`npm run check`、`git diff --check` 和大文件扫描通过；最终本地重建提交作者为 `19856850715@163.com`。
+2026-11-10：`npm test` 通过 41/41，`npm run check`、`git diff --check` 和大文件扫描通过；最终本地重建提交作者为 `19856850715@163.com`。

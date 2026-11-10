@@ -164,3 +164,30 @@ test('local API startup is shared and can restart after stop', async () => {
   await deps.ensureApiStarted();
   assert.equal(starts, 2);
 });
+
+test('main persists session lifecycle and provider events through the session API', async () => {
+  const { createAppDependencies } = require('../apps/desktop/main/index.cjs');
+  const persisted = [];
+  const provider = { start(options) { this.emit = options.emit; }, pause() {}, resume() {}, stop() {} };
+  const deps = createAppDependencies({
+    auth: { getSession: () => ({ accessToken: 'access-1' }) },
+    sessionApi: {
+      create: async (_token, metadata) => { persisted.push({ type: 'session.created', metadata }); return { id: 'api-session-1' }; },
+      append: async (_token, _id, event) => { persisted.push(event); },
+    },
+    transcription: provider,
+    suggestions: { suggest: (text) => ({ text: `suggest:${text}` }) },
+    idFactory: () => 'session-1',
+    clock: () => 10,
+  });
+  await deps.router.dispatch('session.start', { title: 'Persisted interview' }, { source: 'renderer', windowId: 1 });
+  provider.emit({ type: 'transcript.final', text: 'answer', timestamp: 11 });
+  await deps.router.dispatch('session.pause', {}, { source: 'renderer', windowId: 1 });
+  await deps.router.dispatch('session.resume', {}, { source: 'renderer', windowId: 1 });
+  await deps.router.dispatch('session.stop', {}, { source: 'renderer', windowId: 1 });
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(persisted[0].type, 'session.created');
+  assert.deepEqual(persisted.slice(1).map((event) => event.type), [
+    'capture.started', 'transcript.final', 'suggestion', 'session.paused', 'session.resumed', 'session.stopped', 'capture.stopped',
+  ]);
+});
