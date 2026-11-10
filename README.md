@@ -21,10 +21,12 @@
 | 本地建议 provider | 已完成 | 根据最后一条转写生成本地建议，不访问网络 |
 | 屏幕枚举 | 已完成 | 通过 Electron `screen` 枚举显示器，`desktopCapturer` 获取屏幕图像 |
 | 截图 IPC | 已完成 | 获取 PNG data URL 并在 Dashboard 中显示最新截图预览 |
-| 标准麦克风采集 | 已实现，硬件待验 | 设备选择、点击开始申请权限、AudioWorklet PCM、暂停释放/恢复重连；已通过真实 Electron 合成设备验证 |
+| 标准麦克风采集 | 已实现，硬件待验 | 设备选择、自动响应设备变更、点击开始申请权限、AudioWorklet PCM、暂停释放/恢复重连；已通过真实 Electron 合成设备验证 |
 | 系统音频/Windows 原版采集兼容 | 未完成 | 系统回放、原版 agent 协议及 Windows 动态对照仍待验证 |
+| 系统音频能力探测 | 已完成，实际采集待验 | 只读检查 Electron/平台路径和桌面源，不申请 display 权限、不启动音频流 |
 | 真实云端 AI/账户/订阅 | 未完成 | 原版服务端逻辑不在安装包中，无法从客户端完整恢复 |
 | 原版自动更新链 | 未完成 | 只保留静态逆向证据，未接入原版更新源 |
+| Linux x64 桌面 bundle | 已完成，发布签名待做 | 可复现复制 Electron runtime + 本地应用，生成 SHA-256 manifest；不包含原版安装器或 native 文件 |
 | Windows 动态行为对照 | 待做 | 需要授权的 Windows 虚拟机和隔离网络环境 |
 
 因此，当前版本适合本地运行、理解架构和继续替换 provider，不能声称已经完全复刻原软件。
@@ -39,6 +41,16 @@ npm test
 npm run check
 npm run start
 ```
+
+生成可复现的 Linux x64 bundle：
+
+```bash
+npm run build:linux
+npm run check:linux-bundle
+./dist/interviewcoder-local-rebuild-linux-x64/run.sh
+```
+
+bundle 只包含当前仓库的 `apps/`、`packages/`、`services/` 和已安装 Electron runtime。`bundle-manifest.json` 记录每个文件的大小和 SHA-256；`check:linux-bundle` 会校验清单、启动器权限和原版安装器/native 文件排除。当前没有签名、自动更新或 Windows/macOS 安装包。
 
 启动后使用本地演示账户：
 
@@ -57,7 +69,7 @@ npm run start
 6. 打开 Overlay，观察 Local Mode 指示器和会话状态。
 7. 使用 `Take screenshot` 测试显示器枚举和截图 IPC；截图会显示在 Dashboard 的 Latest screenshot 区域。
 
-默认使用三秒演示 PCM；也可以点击 `Choose WAV file` 读取本地文件，或点击 `Use microphone` 选择麦克风。选择和刷新设备不会录音；点击 `Start` 后才申请麦克风访问。`Pause` 释放音轨，`Resume` 重新采集；停止、刷新和退出登录均结束采集。默认转写是演示输出；配置本机 ASR loopback 服务后才会执行实际识别。详细用法、权限排错、格式限制和隐私说明见 [音频输入指南](docs/audio-input.md)。
+默认使用三秒演示 PCM；也可以点击 `Choose WAV file` 读取本地文件，或点击 `Use microphone` 选择麦克风。选择和刷新设备不会录音；系统设备变化会自动刷新列表，已拔出的设备会回退到 Default microphone 并提示。点击 `Start` 后才申请麦克风访问。`Pause` 释放音轨，`Resume` 重新采集；停止、刷新和退出登录均结束采集。默认转写是演示输出；配置本机 ASR loopback 服务后才会执行实际识别。详细用法、权限排错、格式限制和隐私说明见 [音频输入指南](docs/audio-input.md)。
 
 ## 测试与验证
 
@@ -81,6 +93,9 @@ npm test
 - local API、auth、session 和 provider 的端到端组合流程。
 - 完整 WAV 帧传输、来源切换、输入错误后重试、重复会话及退出清理。
 - 麦克风 PCM 编码、设备/处理器故障、迟到授权、队列过载、过期采集标识、乱序/越界音频块和权限拒绝。
+- 麦克风 `devicechange` 自动刷新、设备监听解绑和拔出设备回退。
+- Linux x64 bundle 的 runtime 复制、SHA-256 manifest、清单校验和应用资源排除。
+- 系统音频能力探测、平台提示、无源/错误结果和 Dashboard-only IPC 限制。
 - loopback ASR 地址校验、PCM WAV 封装、返回文本校验、超时、停止取消、请求上限和错误脱敏。
 
 `npm run smoke` 使用真实 Electron 运行桌面流程（需要显示服务；无显示器的 Linux 使用 `xvfb-run -a npm run smoke`）。文件选择器返回合成 WAV；麦克风由 Chromium 合成媒体设备提供，经过真实 AudioWorklet、Preload 和主进程验证。覆盖采集、暂停释放、恢复重连、停止、刷新、退出登录，以及摄像头/Overlay/非采集状态拒绝。不录制物理麦克风，不跳过权限处理。
@@ -204,4 +219,4 @@ Windows 原版动态验证已按要求记为待办并跳过，不阻塞上述标
 
 ## 最终验证
 
-PCM/WAV 阶段证据见 [音频阶段验证报告](reports/audio-input-verification-2026-11-10.md)；麦克风实现、测试结果和未验证范围见 [麦克风阶段验证报告](reports/microphone-verification-2026-11-10.md)；可选 ASR 适配器见 [本地 ASR 验证报告](reports/local-asr-adapter-verification-2026-11-10.md)。当前全量门禁为 119 项 Node 测试、40 个 JS 文件语法检查和真实 Electron smoke。提交作者邮箱为 `19856850715@163.com`。
+PCM/WAV 阶段证据见 [音频阶段验证报告](reports/audio-input-verification-2026-11-10.md)；麦克风实现、测试结果和未验证范围见 [麦克风阶段验证报告](reports/microphone-verification-2026-11-10.md)；可选 ASR 适配器见 [本地 ASR 验证报告](reports/local-asr-adapter-verification-2026-11-10.md)；bundle 验证见 [Linux bundle 报告](reports/linux-bundle-verification-2026-11-10.md)；系统音频探测见 [系统音频报告](reports/system-audio-capability-verification-2026-11-10.md)。当前全量门禁为 123 项 Node 测试、44 个 JS 文件语法检查、Linux bundle 清单校验和真实 Electron smoke。提交作者邮箱为 `19856850715@163.com`。

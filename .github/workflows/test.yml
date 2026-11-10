@@ -54,12 +54,20 @@ jobs:
         run: |
           sudo chown root:root node_modules/electron/dist/chrome-sandbox
           sudo chmod 4755 node_modules/electron/dist/chrome-sandbox
+      - name: Build and verify reproducible Linux bundle
+        run: |
+          npm run build:linux
+          npm run check:linux-bundle
+          sudo chown root:root dist/interviewcoder-local-rebuild-linux-x64/chrome-sandbox
+          sudo chmod 4755 dist/interviewcoder-local-rebuild-linux-x64/chrome-sandbox
       - name: Exercise real Electron with synthetic WAV and microphone
         env:
           DEBUG: pw:browser
         shell: bash
         run: |
           set +e
+          CODING_HELP_SMOKE_APP_ROOT="$GITHUB_WORKSPACE/dist/interviewcoder-local-rebuild-linux-x64/resources/app" \
+          CODING_HELP_SMOKE_ELECTRON="$GITHUB_WORKSPACE/dist/interviewcoder-local-rebuild-linux-x64/electron" \
           xvfb-run -a npm run smoke > "$RUNNER_TEMP/electron-smoke.log" 2>&1
           smoke_status=$?
           cat "$RUNNER_TEMP/electron-smoke.log"

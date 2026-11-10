@@ -7,7 +7,9 @@
     "test": "node --test tests/**/*.test.cjs",
     "check": "node tools/check-js.cjs",
     "start": "electron .",
-    "smoke": "node tools/electron-smoke.cjs"
+    "smoke": "node tools/electron-smoke.cjs",
+    "build:linux": "node tools/build-linux-bundle.cjs",
+    "check:linux-bundle": "node tools/check-linux-bundle.cjs"
   },
   "devDependencies": {
     "electron": "^39.0.0",

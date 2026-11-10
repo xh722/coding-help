@@ -36,6 +36,8 @@ test('dashboard renderer uses only the narrow local bridge', () => {
   assert.match(app, /session\.delete/);
   assert.match(app, /JSON\.stringify/);
   assert.match(app, /transcript\.partial/);
+  assert.match(app, /audio\.get-system-capabilities/);
+  assert.match(read('index.html'), /id="system-audio-check"/);
 });
 
 test('overlay renderer uses only the narrow local bridge', () => {

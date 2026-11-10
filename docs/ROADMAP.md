@@ -2,6 +2,16 @@
 
 ## 待办
 
+## 后续执行清单（按顺序）
+
+- [x] **1. 设备热插拔与选择器可靠性**：监听浏览器 `devicechange`、刷新设备名称、处理拔出中的设备并保持权限边界；合成设备和单元测试已完成。
+- [x] **2. 桌面打包与可复现发布检查**：加入 Electron runtime bundle、SHA-256 资源清单、启动检查和 Linux CI 构建产物验证；不发布原版安装器或 native 文件。
+- [x] **3. 系统音频能力探测**：探测当前平台是否提供回放采集，明确潜在路径、拒绝原因和 UI 状态；没有平台实现时保持安全的不可用结果。实际采集仍待平台验收。
+- [ ] **4. 具体本地 ASR 模型服务**：在用户授权并部署 Whisper/Vosk 等模型服务后，接入已完成的 loopback 协议并验证语言、延迟和错误恢复。
+- [ ] **5. 真实硬件验收**：在授权 Linux/Windows/macOS 设备验证权限、设备切换、拔插、暂停恢复和长时间运行。
+- [ ] **6. Windows 动态行为对照**：使用授权 Windows 虚拟机运行原版 preflight，记录 agent、采集和网络边界；当前环境跳过。
+- [ ] **7. 更新链兼容性**：基于动态证据验证 manifest、签名、下载和回滚，再设计本地更新适配器。
+
 - [ ] **Windows 动态验证**：使用授权 Windows x64 虚拟机运行 `tools/windows-dynamic-preflight.ps1`，再观察原版安装器、`interviewcoder.exe`、`agent-windows.exe`、录音/屏幕采集、stdin/stdout 协议和网络边界。
   - 状态：已记录，当前跳过。
   - 阻塞条件：当前工作环境是 Linux，没有 Windows 虚拟机或真实音频设备；本地 Electron 可使用独立 Xvfb 虚拟显示验证。
@@ -27,3 +37,5 @@
 - [x] 标准麦克风选择、点击 Start 后申请访问、AudioWorklet PCM 分块、暂停释放/恢复重连、退出和失败清理。
 - [x] 麦克风权限及 IPC 约束；合成麦克风真实 Electron 验证，含摄像头/Overlay/非采集状态拒绝。
 - [x] 可选 loopback ASR 适配器：仅允许 localhost/127.0.0.1/::1，默认关闭，失败不泄漏响应内容。
+- [x] 设备变更监听与选择器回退；Linux x64 runtime bundle、SHA-256 manifest 和 bundle smoke。
+- [x] 系统音频只读能力探测；不会申请屏幕/摄像头权限或启动音频流。

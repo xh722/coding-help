@@ -10,6 +10,16 @@ npm test
 npm run check
 ```
 
+Linux x64 bundle：
+
+```bash
+npm run build:linux
+npm run check:linux-bundle
+./dist/interviewcoder-local-rebuild-linux-x64/run.sh
+```
+
+构建目录只使用当前 checkout 的应用文件和已安装 Electron runtime；清单校验每个文件的 SHA-256。生成的 `dist/` 被 Git 忽略，不会提交二进制产物。签名、自动更新和 Windows/macOS 安装包仍未实现。
+
 `npm test` 使用 Node 内置测试运行器覆盖认证、存储、IPC、会话状态机、provider、local API 和端到端本地流程。`npm run check` 对仓库中的 JavaScript/CommonJS 文件执行语法检查。
 
 ## 启动

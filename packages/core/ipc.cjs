@@ -5,7 +5,7 @@ const COMMANDS = Object.freeze([
   'session.start', 'session.pause', 'session.resume', 'session.stop', 'session.get-current', 'session.list', 'session.delete',
   'capture.get-displays', 'capture.take-screenshot',
   'audio.select-file', 'audio.use-demo', 'audio.get-status', 'audio.use-microphone',
-  'audio.microphone-ready', 'audio.microphone-chunk', 'audio.microphone-failed',
+  'audio.microphone-ready', 'audio.microphone-chunk', 'audio.microphone-failed', 'audio.get-system-capabilities',
   'overlay.set-visible', 'overlay.set-bounds', 'app.get-version',
 ]);
 
@@ -27,6 +27,7 @@ const schemas = {
   'audio.microphone-ready': { required: ['captureId', 'sampleRate', 'channels'], fields: { captureId: 'string', sampleRate: 'number', channels: 'number' } },
   'audio.microphone-chunk': { required: ['captureId', 'sequence', 'data'], fields: { captureId: 'string', sequence: 'number', data: 'pcm' } },
   'audio.microphone-failed': { required: ['captureId', 'code'], fields: { captureId: 'string', code: 'string' } },
+  'audio.get-system-capabilities': { required: [], fields: {} },
   'capture.get-displays': { required: [], fields: {} },
   'capture.take-screenshot': { required: [], fields: { displayId: 'string' } },
   'overlay.set-visible': { required: ['visible'], fields: { visible: 'boolean' } },

@@ -11,6 +11,7 @@ const { createCaptureProvider } = require('../../../packages/providers/capture.c
 const { createAudioCaptureProvider, readWavFile, validateWavCapture } = require('../../../packages/providers/audio.cjs');
 const { createMicrophoneProvider } = require('../../../packages/providers/microphone.cjs');
 const { createLocalHttpTranscriptionProvider } = require('../../../packages/providers/transcription-http.cjs');
+const { createSystemAudioCapabilityProvider } = require('../../../packages/providers/system-audio.cjs');
 const { installMediaPermissions } = require('./media-permissions.cjs');
 const { createLocalTranscriptionProvider } = require('../../../packages/providers/transcription.cjs');
 const { createSuggestionProvider } = require('../../../packages/providers/suggestions.cjs');
@@ -147,6 +148,7 @@ function createAppDependencies(options = {}) {
   const suggestions = options.suggestions || createSuggestionProvider();
   const electron = options.electron || null;
   const desktopCapturer = options.desktopCapturer || electron?.desktopCapturer;
+  const systemAudio = options.systemAudio || createSystemAudioCapabilityProvider({ platform: process.platform, desktopCapturer });
   const screen = options.screen || electron?.screen;
   const windows = { dashboard: null, overlay: null };
   const dashboardUrl = pathToFileURL(path.join(__dirname, '../renderer/index.html')).href;
@@ -324,6 +326,7 @@ function createAppDependencies(options = {}) {
     'audio.microphone-ready': (payload) => audio.ready?.(payload) || { ok: true, accepted: false },
     'audio.microphone-chunk': (payload) => audio.push?.(payload) || { ok: true, accepted: false },
     'audio.microphone-failed': (payload) => audio.fail?.(payload) || { ok: true, accepted: false },
+    'audio.get-system-capabilities': () => systemAudio.probe(),
     'session.list': async () => { await persistenceQueue; const token = auth.getSession?.()?.accessToken; if (!token || typeof sessionApi.list !== 'function') return []; try { return await sessionApi.list(token); } catch { return []; } },
     'session.delete': async ({ id }) => {
       if (id === apiSessionId && audioBusy()) return { ok: false, error: { code: 'SESSION_ACTIVE', message: 'Stop the session before deleting it.' } };
@@ -363,7 +366,7 @@ function createAppDependencies(options = {}) {
     ipcMain?.handle?.('local-rebuild:invoke', (event, command, payload) => {
       const trusted = Object.values(windows).some((win) => win && win.webContents === event?.sender);
       if (!trusted || event.senderFrame !== event.sender.mainFrame) return { ok: false, error: { code: 'INVALID_CONTEXT', message: 'Invalid renderer context' } };
-      const microphoneCommand = typeof command === 'string' && (command.startsWith('audio.microphone-') || command === 'audio.use-microphone' || (selectedAudio.source === 'microphone' && ['session.start', 'session.resume'].includes(command)));
+      const microphoneCommand = typeof command === 'string' && (command.startsWith('audio.microphone-') || command === 'audio.use-microphone' || command === 'audio.get-system-capabilities' || (selectedAudio.source === 'microphone' && ['session.start', 'session.resume'].includes(command)));
       if (microphoneCommand && (event.sender !== windows.dashboard?.webContents || event.sender.getURL() !== dashboardUrl)) return { ok: false, error: { code: 'INVALID_CONTEXT', message: 'Invalid renderer context' } };
       return router.dispatch(command, payload, { source: 'renderer', windowId: event.sender.id });
     });
@@ -373,7 +376,7 @@ function createAppDependencies(options = {}) {
     shutdownPromise ||= serialize(async () => { await stopSession(); audio.stop(); transcription.stop(); await persistenceQueue; await stopApi(); });
     return shutdownPromise;
   };
-  return { localApi, sessionApi, ensureApiStarted, getApiAddress: () => localApi.address(), stopApi, shutdown, flushSessionEvents: () => persistenceQueue, get offline() { return offline; }, setOfflineMode: () => { offline = true; }, auth, session, get audio() { return audio; }, capture, transcription, suggestions, router, handlers, windows, createWindow, createWindows, registerIpc, registerMediaPermissions, emit };
+  return { localApi, sessionApi, ensureApiStarted, getApiAddress: () => localApi.address(), stopApi, shutdown, flushSessionEvents: () => persistenceQueue, get offline() { return offline; }, setOfflineMode: () => { offline = true; }, auth, session, get audio() { return audio; }, capture, systemAudio, transcription, suggestions, router, handlers, windows, createWindow, createWindows, registerIpc, registerMediaPermissions, emit };
 }
 
 function runElectronApp(electron) {

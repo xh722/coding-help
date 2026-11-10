@@ -10,6 +10,8 @@
   } = {}) {
     let current = null;
     let state = 'idle';
+    const deviceListeners = new Set();
+    let deviceChangeHandler = null;
     const getState = () => ({ state, captureId: current?.captureId || null });
     const isCurrent = (run) => current === run;
     const quietly = (action) => { try { return action(); } catch { return undefined; } };
@@ -141,7 +143,36 @@
       catch { return []; }
     }
 
-    return { start, pause: () => release('paused'), resume: start, stop: () => release('stopped'), enumerateDevices, getState };
+    function attachDeviceChange() {
+      if (deviceChangeHandler || typeof mediaDevices?.addEventListener !== 'function') return;
+      deviceChangeHandler = () => {
+        enumerateDevices().then((devices) => {
+          for (const listener of [...deviceListeners]) {
+            try { listener(devices); } catch { /* Device notifications must not break capture. */ }
+          }
+        }).catch(() => {});
+      };
+      quietly(() => mediaDevices.addEventListener('devicechange', deviceChangeHandler));
+    }
+
+    function detachDeviceChange() {
+      if (!deviceChangeHandler || deviceListeners.size) return;
+      quietly(() => mediaDevices?.removeEventListener?.('devicechange', deviceChangeHandler));
+      deviceChangeHandler = null;
+    }
+
+    function onDeviceChange(listener) {
+      if (typeof listener !== 'function') throw new TypeError('device listener must be a function');
+      deviceListeners.add(listener); attachDeviceChange();
+      return () => { deviceListeners.delete(listener); detachDeviceChange(); };
+    }
+
+    function dispose() {
+      deviceListeners.clear(); detachDeviceChange();
+      return release('stopped');
+    }
+
+    return { start, pause: () => release('paused'), resume: start, stop: () => release('stopped'), enumerateDevices, onDeviceChange, dispose, getState };
   }
 
   root.createMicrophoneCapture = createMicrophoneCapture;

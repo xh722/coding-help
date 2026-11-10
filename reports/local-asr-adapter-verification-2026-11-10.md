@@ -18,7 +18,7 @@ node --test --test-isolation=none tests/transcription-http.test.cjs tests/deskto
 
 覆盖 loopback 地址拒绝、WAV 头和格式、文本校验、响应体上限和坏响应分类、网络/HTTP/超时脱敏、暂停恢复、上限、幂等 finish、停止取消、桌面端等待最终识别和无效配置回退。
 
-完整仓库测试（119 tests）和真实 Electron smoke 已重新运行；原有合成麦克风/WAV 流程不依赖该适配器。
+完整仓库测试（120 tests）和真实 Electron smoke 已重新运行；原有合成麦克风/WAV 流程不依赖该适配器。
 
 ## 未完成
 

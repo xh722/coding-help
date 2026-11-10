@@ -17,6 +17,7 @@ button { border: 0; border-radius: 8px; padding: 10px 14px; background: #78a6ff;
 .audio-input .toolbar { border: none; padding-top: 0; }
 #microphone-controls { margin-top: 12px; }
 #microphone-refresh { margin-top: 9px; }
+#microphone-device-status { margin-top: 8px; }
 #audio-status { color: #a9d7c5; font-size: 13px; }
 .error { margin-top: 16px; padding: 11px 13px; border: 1px solid #8c3d4b; border-radius: 8px; background: #341d25; color: #ffb8c0; font-size: 13px; } .footer { margin-top: 18px; color: #758197; font-size: 11px; }
 .overlay-page { min-width: 320px; background: transparent; } .overlay-card { margin: 12px; padding: 14px 16px; border: 1px solid #41516c; border-radius: 12px; background: rgba(14, 19, 29, .95); box-shadow: 0 10px 32px rgba(0,0,0,.4); } .privacy-pill { background: #173f32; color: #91e0b4; } .icon-button { padding: 1px 7px; background: transparent; color: #a9b5c7; font-size: 24px; line-height: 1; } .recording-dot { width: 9px; height: 9px; border-radius: 50%; background: #77859b; } .recording-dot.active { background: #e76678; box-shadow: 0 0 0 4px rgba(231,102,120,.15); } .overlay-text { margin-top: 15px; font-size: 16px; line-height: 1.4; } .overlay-suggestion { margin-top: 9px; color: #96baff; font-size: 13px; }

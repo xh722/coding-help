@@ -22,17 +22,19 @@ CODING_HELP_TRANSCRIPTION_URL=http://127.0.0.1:43123/transcribe npm start
 
 ## 使用麦克风
 
-1. 登录后点击 **Use microphone**，从 **Microphone device** 中选择设备；通常可保留 **Default microphone**。**Refresh devices** 仅枚举设备，不开始录音。尚未授权时系统可能不提供设备名称。
+1. 登录后点击 **Use microphone**，从 **Microphone device** 中选择设备；通常可保留 **Default microphone**。**Refresh devices** 仅枚举设备，不开始录音。系统报告耳机、USB 麦克风等变化时列表会自动刷新；如果当前设备被拔出，界面会清除选择并提示回退到 Default microphone。尚未授权时系统可能不提供设备名称。
 2. 点击 **Start** 才申请麦克风访问。界面先显示 **Requesting microphone access**，准备完成后显示 **Microphone active** 和接收统计。系统提示授权时，允许该本地应用使用麦克风。
 3. **Pause** 关闭音轨和 AudioContext；**Resume** 重新申请并建立采集，不补录暂停期间的声音。运行或暂停时，输入源和设备选择被锁定。
 4. **Stop**、**Sign out**、关闭 Dashboard、刷新页面或退出应用都会结束采集。设备断开、处理器失败或处理速度不足会终止会话并提示错误。
 5. 拒绝权限、设备被占用或找不到设备时，检查系统设置，必要时停止后刷新设备列表，重新开始。等待权限或初始化超过 30 秒会自动取消；取消之后才到达的授权结果也会立即关闭音轨。
 
-只采集用户选择的麦克风，不采集系统回放、摄像头或屏幕声音。音频在本机流经 AudioWorklet 和主进程，不回放到扬声器，不上传或保存原始 PCM。历史中保存的是生命周期、格式和演示统计，不包含设备 ID、采集标识或原始音频。
+只采集用户选择的麦克风，不采集系统回放、摄像头或屏幕声音。Dashboard 的 **Check system audio** 只读取桌面源并报告当前平台是否存在潜在 display-media 路径，不申请屏幕权限、不启动流、不把摄像头或桌面画面混入音频。实际系统音频采集仍未实现。麦克风音频在本机流经 AudioWorklet 和主进程，不回放到扬声器，不上传或保存原始 PCM。历史中保存的是生命周期、格式和演示统计，不包含设备 ID、采集标识或原始音频。
 
 实现通过 Chromium 的标准 `getUserMedia` 获取音频，AudioWorklet 下混为单声道 16-bit little-endian PCM。请求 16kHz，界面记录实际协商采样率；每块约 20ms。IPC 每包不超过 16384 字节，队列最多 4 个等待块及 1 个在途块，过载直接停止并提示，不静默丢块。
 
 权限仅允许正在申请/运行采集的 Dashboard 主 frame 访问 audio；摄像头、混合 audio/video、Overlay、其他 URL 和子 frame 均拒绝。主进程同时安装 [Electron permission check/request handlers](https://www.electronjs.org/docs/latest/api/session)，并核对采集标识、顺序、PCM 类型和长度。浏览器处理流程参见 [AudioWorkletProcessor.process](https://developer.mozilla.org/en-US/docs/Web/API/AudioWorkletProcessor/process)。
+
+Electron 的桌面音频路径依赖平台：Windows 可使用 display-media loopback，Linux 依赖 PipeWire 和用户选择器，macOS 14.2+ 需要 System Audio Recording 权限；官方文档还说明 macOS 权限缺失时可能得到没有样本的 ended 音轨。因此本项目把探测结果标为 `potential`，不会把探测当成实际采集成功。参考 [Electron desktopCapturer](https://www.electronjs.org/docs/latest/api/desktop-capturer)。
 
 本阶段使用 Linux + Chromium 合成麦克风验证链路，**没有实测物理麦克风，也没有验证 Windows/macOS 系统权限和设备兼容性**。
 
@@ -74,8 +76,8 @@ CODING_HELP_TRANSCRIPTION_URL=http://127.0.0.1:43123/transcribe npm start
 - `createLocalHttpTranscriptionProvider({ endpoint, fetchImpl, requestTimeoutMs })` 只接受 loopback 服务；`finishAudio()` 封装 WAV 并等待 JSON 文本。默认桌面配置仍使用上面的演示 provider。
 - `getAudioStats()` 不返回原始音频；`stop()` 清空统计。旧 `mode: 'demo'` 定时演示仍用于独立合约测试。
 - `createMicrophoneProvider()` 由主进程管理采集标识，提供相同生命周期接口及 `ready/push/fail/permissionExpected`。暂停和恢复会使用不同标识，过期音频块无法进入新采集。
-- renderer 的 `createMicrophoneCapture()` 管理 MediaStream、AudioContext、Worklet 和有界发送队列；异步步骤取消、迟到授权、设备 `ended` 和 Worklet `processorerror` 均有清理路径。
-- 其他音频实现可通过 `createAppDependencies({ audio })` 注入；系统音频适配器仍未实现。
+- renderer 的 `createMicrophoneCapture()` 管理 MediaStream、AudioContext、Worklet、有界发送队列和 `devicechange` 监听；异步步骤取消、迟到授权、设备 `ended` 和 Worklet `processorerror` 均有清理路径，页面卸载时会解绑监听。
+- 其他音频实现可通过 `createAppDependencies({ audio })` 注入；系统音频仍只有能力探测，实际适配器未实现。
 
 ## 验证
 

@@ -33,12 +33,14 @@
         <div id="microphone-controls" hidden>
           <label>Microphone device<select id="microphone-device"><option value="">Default microphone</option></select></label>
           <button id="microphone-refresh" type="button" class="secondary">Refresh devices</button>
+          <p id="microphone-device-status" class="muted" role="status" aria-live="polite">Device list updates automatically when the system reports a change.</p>
           <p class="muted">Start requests microphone access. Pause, Stop and Sign out release the microphone. Resume requests it again.</p>
         </div>
         <p id="audio-source" class="muted">Demo PCM (no microphone)</p>
         <p id="audio-status" role="status" aria-live="polite">Idle</p>
       </div>
-      <div class="toolbar"><button id="screenshot" type="button" class="secondary" disabled>Take screenshot</button><button id="overlay" type="button" class="secondary">Show overlay</button></div>
+      <div class="toolbar"><button id="screenshot" type="button" class="secondary" disabled>Take screenshot</button><button id="system-audio-check" type="button" class="secondary" disabled>Check system audio</button><button id="overlay" type="button" class="secondary">Show overlay</button></div>
+      <p id="system-audio-status" class="muted" role="status" aria-live="polite" hidden></p>
       <figure id="screenshot-preview" class="screenshot-preview" hidden><figcaption>Latest screenshot</figcaption><img id="screenshot-image" alt="Latest desktop screenshot"></figure>
     </section>
     <section class="card" aria-labelledby="history-heading"><div class="card-heading"><div><p class="eyebrow">HISTORY</p><h2 id="history-heading">Saved sessions</h2></div><div class="actions"><button id="history-refresh" type="button" class="secondary">Refresh</button><button id="history-export" type="button" class="secondary" disabled>Export JSON</button><button id="history-delete" type="button" class="danger" disabled>Delete</button></div></div><ol id="history-list" class="event-list"><li class="empty">No saved sessions yet.</li></ol><pre id="history-detail" class="history-detail" hidden></pre></section>

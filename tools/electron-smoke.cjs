@@ -13,7 +13,7 @@ async function main() {
     process.exitCode = 2;
     return;
   }
-  const repo = path.resolve(__dirname, '..');
+  const repo = path.resolve(process.env.CODING_HELP_SMOKE_APP_ROOT || path.resolve(__dirname, '..'));
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'coding-help-smoke-'));
   for (const name of ['config', 'cache', 'data']) fs.mkdirSync(path.join(root, name));
   const data = Buffer.alloc(64000); // Two seconds, 16kHz, mono, signed 16-bit silence.
@@ -31,7 +31,7 @@ async function main() {
   if (process.env.CODING_HELP_SMOKE_NO_SANDBOX === '1') args.push('--no-sandbox');
   let desktop;
   try {
-    desktop = await _electron.launch({ executablePath: require('electron'), args, env, timeout: 20000 });
+    desktop = await _electron.launch({ executablePath: process.env.CODING_HELP_SMOKE_ELECTRON || require('electron'), args, env, timeout: 20000 });
     // Overlay and dashboard can finish loading in either order; select by actual page URL.
     let page;
     const deadline = Date.now() + 15000;
@@ -57,6 +57,10 @@ async function main() {
     await page.locator('#password').fill('local-dev-password');
     await page.locator('#login-form button[type=submit]').click();
     await page.waitForFunction(() => document.getElementById('auth-badge').textContent.startsWith('Signed in:'));
+    const systemAudio = await page.evaluate(() => window.localRebuild.invoke('audio.get-system-capabilities'));
+    assert.equal(systemAudio.captureStarted, false, 'system audio capability probe must not start capture');
+    await page.locator('#system-audio-check').click();
+    await page.waitForFunction(() => !document.getElementById('system-audio-status').hidden);
     // Mock only OS file selection; file parsing, chunk scheduling, IPC and UI remain real.
     await desktop.evaluate(({ dialog }, fixture) => { dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [fixture] }); }, wav);
     await page.locator('#audio-file').click();

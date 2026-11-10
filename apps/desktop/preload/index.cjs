@@ -12,6 +12,7 @@ const SCHEMAS = Object.freeze({
   'audio.microphone-ready': { required: ['captureId', 'sampleRate', 'channels'], fields: { captureId: 'string', sampleRate: 'number', channels: 'number' } },
   'audio.microphone-chunk': { required: ['captureId', 'sequence', 'data'], fields: { captureId: 'string', sequence: 'number', data: 'pcm' } },
   'audio.microphone-failed': { required: ['captureId', 'code'], fields: { captureId: 'string', code: 'string' } },
+  'audio.get-system-capabilities': { required: [], fields: {} },
   'overlay.set-visible': { required: ['visible'], fields: { visible: 'boolean' } }, 'overlay.set-bounds': { required: ['x', 'y', 'width', 'height'], fields: { x: 'number', y: 'number', width: 'number', height: 'number' } }, 'app.get-version': { required: [], fields: {} },
 });
 function validateCommand(name, payload) {

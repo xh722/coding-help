@@ -32,11 +32,14 @@ function fixture(options = {}) {
   }
   const mediaDevices = {
     async getUserMedia(value) { constraints.push(value); if (options.getUserMedia) return options.getUserMedia(); const result = stream(); streams.push(result); return result; },
-    async enumerateDevices() { return [{ kind: 'audioinput', deviceId: 'mic' }, { kind: 'videoinput', deviceId: 'camera' }, { kind: 'audiooutput', deviceId: 'speaker' }]; }
+    async enumerateDevices() { return [{ kind: 'audioinput', deviceId: 'mic' }, { kind: 'videoinput', deviceId: 'camera' }, { kind: 'audiooutput', deviceId: 'speaker' }]; },
+    addEventListener(name, listener) { if (name === 'devicechange') { this.deviceListener = listener; this.deviceListenerCount = (this.deviceListenerCount || 0) + 1; } },
+    removeEventListener(name, listener) { if (name === 'devicechange' && this.deviceListener === listener) { this.deviceListener = null; this.deviceListenerRemoved = (this.deviceListenerRemoved || 0) + 1; } },
+    emitDeviceChange() { this.deviceListener?.(); },
   };
   const bridge = { async invoke(name, payload) { calls.push({ name, payload }); if (options.invoke) return options.invoke(name, payload); return { ok: true, accepted: true }; } };
   const capture = createMicrophoneCapture({ bridge, mediaDevices, AudioContextClass: Context, AudioWorkletNodeClass: Worklet });
-  return { capture, calls, contexts, worklets, streams, constraints, failures: () => calls.filter((c) => c.name === 'audio.microphone-failed'), chunks: () => calls.filter((c) => c.name === 'audio.microphone-chunk') };
+  return { capture, calls, contexts, worklets, streams, constraints, mediaDevices, failures: () => calls.filter((c) => c.name === 'audio.microphone-failed'), chunks: () => calls.filter((c) => c.name === 'audio.microphone-chunk') };
 }
 
 test('enumeration never acquires hardware and exposes only microphone devices', async () => {
@@ -44,6 +47,15 @@ test('enumeration never acquires hardware and exposes only microphone devices', 
   assert.deepEqual(await f.capture.enumerateDevices(), [{ kind: 'audioinput', deviceId: 'mic' }]);
   assert.equal(f.constraints.length, 0);
   assert.equal(f.contexts.length, 0);
+});
+
+test('devicechange notifies listeners without opening capture and detaches cleanly', async () => {
+  const f = fixture(); const updates = []; const off = f.capture.onDeviceChange((devices) => updates.push(devices));
+  assert.equal(f.mediaDevices.deviceListenerCount, 1);
+  f.mediaDevices.emitDeviceChange(); await flush();
+  assert.deepEqual(updates, [[{ kind: 'audioinput', deviceId: 'mic' }]]); assert.equal(f.constraints.length, 0);
+  off(); assert.equal(f.mediaDevices.deviceListenerRemoved, 1); f.mediaDevices.emitDeviceChange(); await flush();
+  assert.equal(updates.length, 1); f.capture.dispose();
 });
 
 test('browser global exports the same factory without needing Node', () => {

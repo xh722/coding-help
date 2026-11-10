@@ -87,3 +87,10 @@ test('both preload and main bound binary payloads and reject inherited command n
     assert.equal(validateCommand(command, {}).ok, false); await assert.rejects(bridge.invoke(command, {}));
   }
 });
+
+test('system audio capability probe is Dashboard-only and never starts a stream', async (t) => {
+  const h = harness(); t.after(() => h.deps.shutdown());
+  const result = await h.invoke('audio.get-system-capabilities');
+  assert.equal(result.captureStarted, false); assert.ok(['potential', 'unavailable', 'unknown'].includes(result.capability));
+  assert.equal((await h.invoke('audio.get-system-capabilities', {}, h.deps.windows.overlay.webContents)).error.code, 'INVALID_CONTEXT');
+});
