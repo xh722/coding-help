@@ -2,7 +2,8 @@
 param(
     [Parameter(Mandatory = $true)]
     [string]$SamplePath,
-    [string]$CaseRoot = "C:\IR\interviewcoder-dynamic"
+    [string]$CaseRoot = "C:\IR\interviewcoder-dynamic",
+    [string]$ExpectedSha256 = "37843b027f36c67153bf16fae40d94fc3542d765a5a41cb67e7fc39755a96f39"
 )
 
 $ErrorActionPreference = "Stop"
@@ -14,13 +15,18 @@ if (-not (Test-Path -LiteralPath $SamplePath -PathType Leaf)) {
 New-Item -ItemType Directory -Force -Path $CaseRoot | Out-Null
 $sample = Get-Item -LiteralPath $SamplePath
 $hash = Get-FileHash -LiteralPath $SamplePath -Algorithm SHA256
+$actualHash = $hash.Hash.ToLowerInvariant()
+if ($ExpectedSha256 -and $actualHash -ne $ExpectedSha256.ToLowerInvariant()) {
+    throw "Sample SHA256 does not match the expected authorized fixture; dynamic execution was not started."
+}
 $timestamp = (Get-Date).ToUniversalTime().ToString("o")
 
 [pscustomobject]@{
     samplePath = $sample.FullName
     sampleName = $sample.Name
     size = $sample.Length
-    sha256 = $hash.Hash.ToLowerInvariant()
+    sha256 = $actualHash
+    expectedSha256 = $ExpectedSha256.ToLowerInvariant()
     collectedAtUtc = $timestamp
     executionStarted = $false
     note = "Static preflight only; the sample was not started."
@@ -49,5 +55,5 @@ $registryOutput = Join-Path $CaseRoot "registry-before.txt"
     Set-Content -LiteralPath $registryOutput -Encoding UTF8
 
 Write-Output "Preflight collected in $CaseRoot"
-Write-Output "SHA256: $($hash.Hash.ToLowerInvariant())"
+Write-Output "SHA256: $actualHash"
 Write-Output "executionStarted: false"

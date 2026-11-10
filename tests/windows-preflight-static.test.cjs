@@ -9,6 +9,8 @@ const script = fs.readFileSync(path.join(__dirname, '..', 'tools', 'windows-dyna
 
 test('Windows preflight never launches the supplied sample', () => {
   assert.match(script, /Get-FileHash/);
+  assert.match(script, /ExpectedSha256/);
+  assert.match(script, /does not match the expected authorized fixture/);
   assert.match(script, /executionStarted\s*=\s*\$false/);
   assert.doesNotMatch(script, /Start-Process/i);
   assert.doesNotMatch(script, /Invoke-Expression/i);

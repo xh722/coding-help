@@ -14,10 +14,11 @@
 
 ## 2. 样本确认
 
-在 VM 中复制安装包后先计算哈希：
+在 VM 中复制安装包后先计算哈希。`tools/windows-dynamic-preflight.ps1` 默认会再次核对下方授权 fixture hash；不一致会直接退出，且不会启动样本：
 
 ```powershell
 Get-FileHash .\interviewcoder-setup.exe -Algorithm SHA256
+.\tools\windows-dynamic-preflight.ps1 -SamplePath .\interviewcoder-setup.exe
 Get-Item .\interviewcoder-setup.exe | Format-List Length,CreationTimeUtc,LastWriteTimeUtc
 ```
 

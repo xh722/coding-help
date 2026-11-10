@@ -41,3 +41,4 @@
 - [x] 系统音频只读能力探测；不会申请屏幕/摄像头权限或启动音频流。
 - [x] 本地 ASR 协议参考 fixture：真实 loopback HTTP、WAV 校验和固定响应；不冒充实际语音识别模型。
 - [x] 物理硬件只读预检：确认当前容器无 `/dev/snd`、无 ALSA 声卡和不可用 PulseAudio；物理验收仍阻塞。
+- [x] Windows preflight 静态安全加强：默认核对授权样本 SHA-256，hash 不匹配时拒绝进入动态阶段；实际 Windows 运行仍阻塞。
