@@ -7,6 +7,7 @@ const { createJsonStore } = require('../../../packages/core/storage.cjs');
 const { createSessionMachine } = require('../../../packages/core/session.cjs');
 const { createIpcRouter } = require('../../../packages/core/ipc.cjs');
 const { createCaptureProvider } = require('../../../packages/providers/capture.cjs');
+const { createAudioCaptureProvider } = require('../../../packages/providers/audio.cjs');
 const { createLocalTranscriptionProvider } = require('../../../packages/providers/transcription.cjs');
 const { createSuggestionProvider } = require('../../../packages/providers/suggestions.cjs');
 const { createLocalApi } = require('../../../services/local-api/server.cjs');
@@ -101,6 +102,7 @@ function createAppDependencies(options = {}) {
   }
   const session = options.session || createSessionMachine({ idFactory: options.idFactory || randomUUID, clock });
   const transcription = options.transcription || createLocalTranscriptionProvider({ clock: options.timer || globalThis });
+  const audio = options.audio || createAudioCaptureProvider({ clock: options.timer || globalThis, chunks: [] });
   const suggestions = options.suggestions || createSuggestionProvider();
   const electron = options.electron || null;
   const desktopCapturer = options.desktopCapturer || electron?.desktopCapturer;
@@ -120,9 +122,9 @@ function createAppDependencies(options = {}) {
   });
   const handlers = {
     'auth.login': ({ email, password }) => auth.login(email, password), 'auth.logout': () => auth.logout().then(() => ({ ok: true })), 'auth.get-session': () => auth.getSession(),
-    'session.start': async ({ title, language, notes }) => { session.start({ title, language, notes }); apiSessionId = null; await createPersistedSession({ title, language, notes }); transcription.start({ emit }); emit({ type: 'capture.started', source: 'local' }); return session.getSnapshot(); },
-    'session.pause': () => { session.pause(); transcription.pause(); emit({ type: 'session.paused', source: 'local' }); return session.getSnapshot(); }, 'session.resume': () => { session.resume(); transcription.resume(); emit({ type: 'session.resumed', source: 'local' }); return session.getSnapshot(); },
-    'session.stop': () => { session.stop(); transcription.stop(); emit({ type: 'session.stopped', source: 'local' }); emit({ type: 'capture.stopped', source: 'local' }); return session.getSnapshot(); }, 'session.get-current': () => session.getSnapshot(),
+    'session.start': async ({ title, language, notes }) => { session.start({ title, language, notes }); apiSessionId = null; await createPersistedSession({ title, language, notes }); transcription.start({ emit }); audio.start({ onEvent: (event) => { if (['audio.started', 'audio.paused', 'audio.resumed', 'audio.stopped', 'audio.error'].includes(event?.type)) emit(event); }, onChunk: (chunk) => transcription.pushAudio?.(chunk) }); emit({ type: 'capture.started', source: 'local' }); return session.getSnapshot(); },
+    'session.pause': () => { if (session.getSnapshot().state !== 'active') return session.getSnapshot(); session.pause(); transcription.pause(); audio.pause(); emit({ type: 'session.paused', source: 'local' }); return session.getSnapshot(); }, 'session.resume': () => { if (session.getSnapshot().state !== 'paused') return session.getSnapshot(); session.resume(); transcription.resume(); audio.resume(); emit({ type: 'session.resumed', source: 'local' }); return session.getSnapshot(); },
+    'session.stop': () => { if (session.getSnapshot().state === 'stopped') return session.getSnapshot(); session.stop(); transcription.stop(); audio.stop(); emit({ type: 'session.stopped', source: 'local' }); emit({ type: 'capture.stopped', source: 'local' }); return session.getSnapshot(); }, 'session.get-current': () => session.getSnapshot(),
     'session.list': async () => { const token = auth.getSession?.()?.accessToken; if (!token || typeof sessionApi.list !== 'function') return []; try { return await sessionApi.list(token); } catch { return []; } },
     'session.delete': async ({ id }) => { const token = auth.getSession?.()?.accessToken; if (!token || typeof sessionApi.delete !== 'function') return { ok: false, error: { code: 'AUTH_REQUIRED', message: 'Sign in required' } }; try { return await sessionApi.delete(token, id); } catch { return { ok: false, error: { code: 'SESSION_DELETE_FAILED', message: 'Unable to delete session' } }; } },
     'capture.get-displays': () => capture.getDisplays(), 'capture.take-screenshot': ({ displayId }) => capture.takeScreenshot(displayId),
@@ -141,7 +143,7 @@ function createAppDependencies(options = {}) {
   }
   function createWindows() { if (!windows.dashboard || windows.dashboard.isDestroyed?.()) createWindow('dashboard'); if (!windows.overlay || windows.overlay.isDestroyed?.()) createWindow('overlay'); return { ...windows }; }
   function registerIpc(ipcMain) { if (ipcMain?.handle) ipcMain.handle('local-rebuild:invoke', (event, command, payload) => router.dispatch(command, payload, { source: 'renderer', windowId: event?.sender?.id })); }
-  return { localApi, sessionApi, ensureApiStarted, getApiAddress: () => localApi.address(), stopApi, get offline() { return offline; }, setOfflineMode: () => { offline = true; }, auth, session, capture, transcription, suggestions, router, handlers, windows, createWindow, createWindows, registerIpc, emit };
+  return { localApi, sessionApi, ensureApiStarted, getApiAddress: () => localApi.address(), stopApi, get offline() { return offline; }, setOfflineMode: () => { offline = true; }, auth, session, audio, capture, transcription, suggestions, router, handlers, windows, createWindow, createWindows, registerIpc, emit };
 }
 
 function runElectronApp(electron) { const { app, ipcMain, screen, desktopCapturer } = electron; const userData = app.getPath('userData'); const deps = createAppDependencies({ electron, screen, desktopCapturer, localApi: electron.__localApi, storePath: path.join(userData, 'local-rebuild-auth.json'), sessionStorePath: path.join(userData, 'local-rebuild-sessions.json') }); deps.registerIpc(ipcMain); app.whenReady().then(async () => { try { await deps.ensureApiStarted(); } catch { deps.setOfflineMode(); } deps.createWindows(); }); app.on('before-quit', () => { deps.stopApi(); }); app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); }); app.on('activate', () => deps.createWindows()); return deps; }

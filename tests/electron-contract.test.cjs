@@ -69,7 +69,7 @@ test('main composes transcription events and enforces secure windows', async () 
   deps.windows.dashboard = { isDestroyed: () => false, webContents: { send: (_channel, event) => events.push(event) } };
   await deps.router.dispatch('session.start', { title: 'Test' }, { source: 'renderer', windowId: 1 });
   provider.emit({ type: 'transcript.final', text: 'answer', timestamp: 2 });
-  assert.deepEqual(events.filter((event) => typeof event === 'object'), [{ type: 'capture.started', source: 'local' }, { type: 'transcript.final', text: 'answer', timestamp: 2 }, { type: 'suggestion', text: 'suggest:answer', timestamp: 2 }]);
+  assert.deepEqual(events.filter((event) => typeof event === 'object'), [{ type: 'audio.started', source: 'deterministic', sampleRate: 16000, channels: 1, format: 'pcm_s16le' }, { type: 'audio.stopped', source: 'deterministic' }, { type: 'capture.started', source: 'local' }, { type: 'transcript.final', text: 'answer', timestamp: 2 }, { type: 'suggestion', text: 'suggest:answer', timestamp: 2 }]);
   await deps.router.dispatch('session.pause', {}, { source: 'renderer', windowId: 1 });
   await deps.router.dispatch('session.resume', {}, { source: 'renderer', windowId: 1 });
   await deps.router.dispatch('session.stop', {}, { source: 'renderer', windowId: 1 });
@@ -80,6 +80,42 @@ test('main composes transcription events and enforces secure windows', async () 
   const secure = createAppDependencies({ electron });
   secure.createWindow('dashboard', { webPreferences: { nodeIntegration: true, contextIsolation: false, sandbox: false, preload: '/bad' } });
   assert.deepEqual(created[0].options.webPreferences, { contextIsolation: true, nodeIntegration: false, sandbox: true, preload: require('node:path').join(require('node:path').dirname(__dirname), 'apps/desktop/preload/index.cjs') });
+});
+
+test('main wires audio lifecycle and chunks into transcription idempotently', async () => {
+  const { createAppDependencies } = require('../apps/desktop/main/index.cjs');
+  const events = [];
+  const audioCalls = [];
+  const audio = {
+    start(options) { audioCalls.push('start'); this.options = options; },
+    pause() { audioCalls.push('pause'); },
+    resume() { audioCalls.push('resume'); },
+    stop() { audioCalls.push('stop'); },
+  };
+  const transcription = {
+    start() {},
+    pause() {},
+    resume() {},
+    stop() {},
+    pushAudio(chunk) { events.push({ type: 'chunk', chunk }); return true; },
+  };
+  const deps = createAppDependencies({ audio, transcription, suggestions: { suggest: () => ({ text: 'suggestion' }) } });
+  deps.windows.dashboard = { isDestroyed: () => false, webContents: { send: (_channel, event) => events.push(event) } };
+
+  await deps.router.dispatch('session.start', { title: 'Audio test' }, { source: 'renderer', windowId: 1 });
+  audio.options.onEvent({ type: 'audio.started', source: 'fake' });
+  audio.options.onEvent({ type: 'audio.error', source: 'fake', code: 'TEST', message: 'test' });
+  audio.options.onChunk(Buffer.from([1, 2]), { source: 'fake' });
+  assert.deepEqual(events.filter((event) => event?.type?.startsWith('audio.')).map((event) => event.type), ['audio.started', 'audio.error']);
+  assert.deepEqual(events.find((event) => event?.type === 'chunk').chunk, Buffer.from([1, 2]));
+
+  await deps.router.dispatch('session.pause', {}, { source: 'renderer', windowId: 1 });
+  await deps.router.dispatch('session.pause', {}, { source: 'renderer', windowId: 1 });
+  await deps.router.dispatch('session.resume', {}, { source: 'renderer', windowId: 1 });
+  await deps.router.dispatch('session.resume', {}, { source: 'renderer', windowId: 1 });
+  await deps.router.dispatch('session.stop', {}, { source: 'renderer', windowId: 1 });
+  await deps.router.dispatch('session.stop', {}, { source: 'renderer', windowId: 1 });
+  assert.deepEqual(audioCalls, ['start', 'pause', 'resume', 'stop']);
 });
 
 test('main blocks will-redirect navigation', () => {
@@ -188,7 +224,7 @@ test('main persists session lifecycle and provider events through the session AP
   await new Promise((resolve) => setImmediate(resolve));
   assert.equal(persisted[0].type, 'session.created');
   assert.deepEqual(persisted.slice(1).map((event) => event.type), [
-    'capture.started', 'transcript.final', 'suggestion', 'session.paused', 'session.resumed', 'session.stopped', 'capture.stopped',
+    'audio.started', 'audio.stopped', 'capture.started', 'transcript.final', 'suggestion', 'session.paused', 'session.resumed', 'session.stopped', 'capture.stopped',
   ]);
 });
 

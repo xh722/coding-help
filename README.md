@@ -17,10 +17,11 @@
 | 本地 API | 已完成 | loopback 绑定、登录、刷新、用户、会话历史、事件、结构化错误；会话/事件可持久化恢复 |
 | 会话状态机 | 已完成 | idle、active、paused、stopped、error，停止操作幂等；生命周期事件写入历史记录 |
 | 本地转写 provider | 已完成 | 生成确定性的 partial/final transcript 事件 |
+| 平台中立音频 provider | 已完成 | 支持确定性 PCM/WAV 输入、生命周期事件和转写 PCM 接线 |
 | 本地建议 provider | 已完成 | 根据最后一条转写生成本地建议，不访问网络 |
 | 屏幕枚举 | 已完成 | 通过 Electron `desktopCapturer` 获取显示器列表 |
 | 截图 IPC | 已完成 | 获取 PNG data URL 并在 Dashboard 中显示最新截图预览 |
-| 真实麦克风/系统音频 | 未完成 | 当前使用确定性 provider，未接入原版 Recall native agent |
+| 真实麦克风/系统音频 | 未完成 | Windows 真实设备 provider 仍待动态验证，当前使用确定性/文件输入 |
 | 真实云端 AI/账户/订阅 | 未完成 | 原版服务端逻辑不在安装包中，无法从客户端完整恢复 |
 | 原版自动更新链 | 未完成 | 只保留静态逆向证据，未接入原版更新源 |
 | Windows 动态行为对照 | 待做 | 需要授权的 Windows 虚拟机和隔离网络环境 |
@@ -59,7 +60,7 @@ npm run start
 
 ## 测试与验证
 
-当前测试覆盖 36 个行为：
+当前测试覆盖 59 个行为：
 
 ```bash
 npm test
