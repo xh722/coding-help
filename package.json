@@ -10,7 +10,9 @@
     "smoke": "node tools/electron-smoke.cjs",
     "build:linux": "node tools/build-linux-bundle.cjs",
     "check:linux-bundle": "node tools/check-linux-bundle.cjs",
-    "asr:fixture": "node tools/local-asr-fixture.cjs"
+    "asr:fixture": "node tools/local-asr-fixture.cjs",
+    "test:asr-server": "python3 -m unittest tests/local_asr_server_test.py",
+    "asr:faster-whisper": "python3 services/local-asr/faster_whisper_server.py"
   },
   "devDependencies": {
     "electron": "^39.0.0",

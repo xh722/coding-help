@@ -29,6 +29,16 @@ CODING_HELP_TRANSCRIPTION_URL=http://127.0.0.1:43123/transcribe npm start
 
 fixture 只校验 PCM WAV 并返回固定文本，**不是语音识别模型**；它用于确认 loopback、WAV、超时和错误处理。实际识别需要替换成用户部署的 Whisper/Vosk 等服务。
 
+如果用户已安装 `faster-whisper` 并拥有本地模型目录，可以运行仓库提供的可选服务：
+
+```bash
+python3 -m pip install faster-whisper
+WHISPER_MODEL=/path/to/model npm run asr:faster-whisper
+CODING_HELP_TRANSCRIPTION_URL=http://127.0.0.1:43123/transcribe npm start
+```
+
+服务默认使用 CPU `int8`，只监听 loopback；也可设置 `WHISPER_DEVICE`、`WHISPER_COMPUTE_TYPE`。模型路径缺失、依赖未安装或模型加载失败时服务仍可启动用于 `/healthz` 诊断，但返回 503，不会返回固定文本或伪造识别。需要允许下载命名模型时显式传 `--allow-model-download`，仓库不会替用户下载模型。
+
 ## 使用麦克风
 
 1. 登录后点击 **Use microphone**，从 **Microphone device** 中选择设备；通常可保留 **Default microphone**。**Refresh devices** 仅枚举设备，不开始录音。系统报告耳机、USB 麦克风等变化时列表会自动刷新；如果当前设备被拔出，界面会清除选择并提示回退到 Default microphone。尚未授权时系统可能不提供设备名称。

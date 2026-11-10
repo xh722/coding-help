@@ -25,6 +25,8 @@ jobs:
         run: npm ci --ignore-scripts
       - name: Run tests
         run: npm test
+      - name: Check optional faster-whisper server boundary
+        run: npm run test:asr-server
       - name: Check syntax
         run: npm run check
       - name: Check whitespace
