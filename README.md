@@ -182,6 +182,8 @@ Electron 启动时会尝试启动本地 API。如果 API 因端口、权限或�
 
 完整设计见 [`docs/superpowers/specs/2026-11-09-interviewcoder-local-rebuild-design.md`](docs/superpowers/specs/2026-11-09-interviewcoder-local-rebuild-design.md)，使用说明见 [`docs/local-rebuild-usage.md`](docs/local-rebuild-usage.md)。
 
+项目路线图和已跳过的 Windows 动态验证待办见 [`docs/ROADMAP.md`](docs/ROADMAP.md)。
+
 ## 最终验证
 
 2026-11-10：`npm test` 通过 37/37，`npm run check`、`git diff --check` 和大文件扫描通过；最终本地重建提交作者为 `19856850715@163.com`。

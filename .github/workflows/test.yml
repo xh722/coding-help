@@ -1,0 +1,38 @@
+name: test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  node-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install dependencies without running native postinstall
+        run: npm ci --ignore-scripts
+      - name: Run tests
+        run: npm test
+      - name: Check syntax
+        run: npm run check
+      - name: Check whitespace
+        run: git diff --check
+      - name: Check tracked artifact size
+        shell: bash
+        run: |
+          if find . -type f -size +20M -not -path './.git/*' -not -path './node_modules/*' -print -quit | grep -q .; then
+            echo 'Tracked or workspace artifact exceeds 20 MiB'
+            exit 1
+          fi
