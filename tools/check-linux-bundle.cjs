@@ -10,6 +10,8 @@ const manifestPath = path.join(root, 'bundle-manifest.json');
 if (!fs.existsSync(manifestPath)) throw new Error(`Missing bundle manifest: ${manifestPath}`);
 const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
 if (manifest.schemaVersion !== 1 || manifest.platform !== 'linux-x64') throw new Error('Unsupported bundle manifest.');
+const expectedRevision = process.env.CODING_HELP_EXPECTED_REVISION;
+if (expectedRevision && manifest.sourceRevision !== expectedRevision) throw new Error(`Bundle source revision mismatch: expected ${expectedRevision}, got ${manifest.sourceRevision || 'missing'}.`);
 if (!fs.existsSync(path.join(root, 'electron')) || !fs.existsSync(path.join(root, 'resources', 'app', 'package.json'))) throw new Error('Bundle runtime or app package is missing.');
 if ((fs.statSync(path.join(root, 'run.sh')).mode & 0o111) === 0) throw new Error('Bundle launcher is not executable.');
 const actual = new Set(walk(root).map((file) => path.relative(root, file).split(path.sep).join('/')).filter((file) => file !== 'bundle-manifest.json'));
