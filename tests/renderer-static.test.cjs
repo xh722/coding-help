@@ -25,6 +25,9 @@ test('dashboard renderer uses only the narrow local bridge', () => {
   assert.match(app, /window\.localRebuild\.invoke/);
   assert.match(app, /window\.localRebuild\.onEvent/);
   assert.match(read('index.html'), /value="local-dev@example\.com"/);
+  assert.match(read('index.html'), /id="screenshot-preview"/);
+  assert.match(app, /screenshot-preview/);
+  assert.match(app, /dataUrl/);
   assert.match(app, /transcript\.partial/);
 });
 
