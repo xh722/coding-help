@@ -39,4 +39,4 @@ local API 只监听 `127.0.0.1`，默认使用随机端口。转写和建议由�
 
 ## 本地音频
 
-Dashboard 的 `Use microphone` 提供设备选择，在点击 Start 后才申请访问麦克风；Pause 释放设备，Resume 重新采集。`Choose WAV file` 支持本地整数 PCM WAV；默认 `Use demo PCM` 是合成静音。三种输入都支持暂停、恢复、停止和重复会话。转写输出仅显示演示文本与输入统计，不执行语音识别。详细格式、权限和错误处理及真实 Electron smoke 命令见 [音频输入指南](audio-input.md)。标准麦克风链路已通过合成设备验证，物理硬件与 Windows/macOS 权限尚未验收。
+Dashboard 的 `Use microphone` 提供设备选择，在点击 Start 后才申请访问麦克风；Pause 释放设备，Resume 重新采集。`Choose WAV file` 支持本地整数 PCM WAV；默认 `Use demo PCM` 是合成静音。三种输入都支持暂停、恢复、停止和重复会话。默认转写只显示演示文本与输入统计；设置 `CODING_HELP_TRANSCRIPTION_URL` 后才会使用用户自建的 loopback ASR 服务。详细格式、权限和错误处理及真实 Electron smoke 命令见 [音频输入指南](audio-input.md)。标准麦克风链路已通过合成设备验证，物理硬件与 Windows/macOS 权限尚未验收。

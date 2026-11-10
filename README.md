@@ -16,7 +16,7 @@
 | 本地登录 | 已完成 | 仅接受演示账户，支持刷新、退出和过期 token |
 | 本地 API | 已完成 | loopback 绑定、登录、刷新、用户、会话历史、事件、结构化错误；会话/事件可持久化恢复 |
 | 会话状态机 | 已完成 | idle、active、paused、stopped；支持停止后再次开始，音频错误会停止并提示；生命周期事件写入历史记录 |
-| 本地转写 provider | 已完成 | 仅演示 partial/final 和已接收 PCM 统计，不执行语音识别 |
+| 本地转写 provider | 已完成（演示 + 可选 loopback ASR） | 默认只显示 PCM 统计；配置 `CODING_HELP_TRANSCRIPTION_URL` 后可把 PCM WAV 发给用户自建的 loopback ASR 服务 |
 | 平台中立音频 provider | 已完成 | 可在 Dashboard 选择本地 PCM WAV，完整帧分块、暂停/恢复、输入统计和错误清理 |
 | 本地建议 provider | 已完成 | 根据最后一条转写生成本地建议，不访问网络 |
 | 屏幕枚举 | 已完成 | 通过 Electron `screen` 枚举显示器，`desktopCapturer` 获取屏幕图像 |
@@ -57,7 +57,7 @@ npm run start
 6. 打开 Overlay，观察 Local Mode 指示器和会话状态。
 7. 使用 `Take screenshot` 测试显示器枚举和截图 IPC；截图会显示在 Dashboard 的 Latest screenshot 区域。
 
-默认使用三秒演示 PCM；也可以点击 `Choose WAV file` 读取本地文件，或点击 `Use microphone` 选择麦克风。选择和刷新设备不会录音；点击 `Start` 后才申请麦克风访问。`Pause` 释放音轨，`Resume` 重新采集；停止、刷新和退出登录均结束采集。转写和建议仍是演示输出，不是实际语音识别。详细用法、权限排错、格式限制和隐私说明见 [音频输入指南](docs/audio-input.md)。
+默认使用三秒演示 PCM；也可以点击 `Choose WAV file` 读取本地文件，或点击 `Use microphone` 选择麦克风。选择和刷新设备不会录音；点击 `Start` 后才申请麦克风访问。`Pause` 释放音轨，`Resume` 重新采集；停止、刷新和退出登录均结束采集。默认转写是演示输出；配置本机 ASR loopback 服务后才会执行实际识别。详细用法、权限排错、格式限制和隐私说明见 [音频输入指南](docs/audio-input.md)。
 
 ## 测试与验证
 
@@ -81,6 +81,7 @@ npm test
 - local API、auth、session 和 provider 的端到端组合流程。
 - 完整 WAV 帧传输、来源切换、输入错误后重试、重复会话及退出清理。
 - 麦克风 PCM 编码、设备/处理器故障、迟到授权、队列过载、过期采集标识、乱序/越界音频块和权限拒绝。
+- loopback ASR 地址校验、PCM WAV 封装、返回文本校验、超时、停止取消、请求上限和错误脱敏。
 
 `npm run smoke` 使用真实 Electron 运行桌面流程（需要显示服务；无显示器的 Linux 使用 `xvfb-run -a npm run smoke`）。文件选择器返回合成 WAV；麦克风由 Chromium 合成媒体设备提供，经过真实 AudioWorklet、Preload 和主进程验证。覆盖采集、暂停释放、恢复重连、停止、刷新、退出登录，以及摄像头/Overlay/非采集状态拒绝。不录制物理麦克风，不跳过权限处理。
 
@@ -118,6 +119,7 @@ packages/providers/
   audio.cjs             PCM / WAV 输入和资源清理
   microphone.cjs        麦克风采集标识、IPC 数据校验及生命周期
   transcription.cjs     演示转写及 PCM 输入统计
+  transcription-http.cjs 可选 loopback ASR WAV 适配器
   suggestions.cjs       本地建议 provider
   capture.cjs           显示器/截图接口和注入式实现
 
@@ -185,7 +187,7 @@ Electron 启动时会尝试启动本地 API。如果 API 因端口、权限或�
 
 ## 下一阶段
 
-下一步优先接入真正的语音识别 provider，并完成物理麦克风与桌面打包验收。当前演示转写不会识别语音。
+下一步优先接入具体的本地 ASR 模型服务，并完成物理麦克风与桌面打包验收。当前仓库不捆绑模型；未配置 loopback 服务时仍不会识别语音。
 
 Windows 原版动态验证已按要求记为待办并跳过，不阻塞上述标准能力开发。后续具备授权虚拟机时再进行：
 
@@ -202,4 +204,4 @@ Windows 原版动态验证已按要求记为待办并跳过，不阻塞上述标
 
 ## 最终验证
 
-PCM/WAV 阶段证据见 [音频阶段验证报告](reports/audio-input-verification-2026-11-10.md)；最新麦克风实现、测试结果和未验证范围见 [麦克风阶段验证报告](reports/microphone-verification-2026-11-10.md)。提交作者邮箱为 `19856850715@163.com`。
+PCM/WAV 阶段证据见 [音频阶段验证报告](reports/audio-input-verification-2026-11-10.md)；麦克风实现、测试结果和未验证范围见 [麦克风阶段验证报告](reports/microphone-verification-2026-11-10.md)；可选 ASR 适配器见 [本地 ASR 验证报告](reports/local-asr-adapter-verification-2026-11-10.md)。当前全量门禁为 119 项 Node 测试、40 个 JS 文件语法检查和真实 Electron smoke。提交作者邮箱为 `19856850715@163.com`。

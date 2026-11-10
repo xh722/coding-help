@@ -1,6 +1,24 @@
 # 本地麦克风 / PCM / WAV 音频输入
 
-标准麦克风、音频文件和 PCM 数据已接入桌面会话；当前转写器仍为演示实现，**不会识别语音**。它显示接收到的音频块和字节数。系统音频、Windows 原版 agent 对照和真实硬件验收继续列入待办。
+标准麦克风、音频文件和 PCM 数据已接入桌面会话；默认转写器是演示实现，**不会识别语音**。如配置用户自己运行的 loopback ASR 服务，应用可在会话结束时发送 PCM WAV 并显示服务返回的文本。系统音频、Windows 原版 agent 对照和真实硬件验收继续列入待办。
+
+## 可选本地 ASR
+
+仓库不捆绑模型，也不会自动连接公网服务。启动桌面应用前设置环境变量：
+
+```bash
+CODING_HELP_TRANSCRIPTION_URL=http://127.0.0.1:43123/transcribe npm start
+```
+
+只接受 `http`/`https` 的 `localhost`、`127.0.0.1` 或 `[::1]`，不接受 URL 用户名、密码或公网域名。应用在会话结束时以 `audio/wav` POST 单个 PCM WAV，包含标准 RIFF/PCM 头；服务应返回 JSON：
+
+```json
+{"text":"recognized text"}
+```
+
+返回文本会去除首尾空格并限制长度；空响应、非 JSON、HTTP 错误、网络错误和超时都会产生固定错误提示。原始响应、服务地址中的凭据和音频内容不会写入历史。暂停期间不发送，停止会取消等待中的请求。状态栏会显示 `LOCAL ASR · loopback`；未配置或配置无效时显示 `DEMO · no speech recognition`。
+
+该适配器只定义本地服务协议，不代表仓库已包含 Whisper/Vosk 等识别模型。模型服务的安装、模型文件、语言设置和准确率由用户自行负责。
 
 ## 使用麦克风
 
@@ -53,6 +71,7 @@
 - `onChunk(Buffer, metadata)` 仅在主进程内调用；metadata 包含 `sampleRate`、`channels`、`bitsPerSample`、`format`、`sequence`、`sampleOffset`、`durationMs`、`timestamp`。
 - `onEvent()` 只传 `audio.started/paused/resumed/stopped/error` 元数据；自然完成、停止和消费回调异常都会清理定时器及内部缓冲引用。
 - `createLocalTranscriptionProvider({ mode: 'audio' })` 接受 `pushAudio()`，统计 `{ bytes, chunks }`。它持续接收直到 `finishAudio()`，不会被旧演示的 20ms 定时器提前关闭。
+- `createLocalHttpTranscriptionProvider({ endpoint, fetchImpl, requestTimeoutMs })` 只接受 loopback 服务；`finishAudio()` 封装 WAV 并等待 JSON 文本。默认桌面配置仍使用上面的演示 provider。
 - `getAudioStats()` 不返回原始音频；`stop()` 清空统计。旧 `mode: 'demo'` 定时演示仍用于独立合约测试。
 - `createMicrophoneProvider()` 由主进程管理采集标识，提供相同生命周期接口及 `ready/push/fail/permissionExpected`。暂停和恢复会使用不同标识，过期音频块无法进入新采集。
 - renderer 的 `createMicrophoneCapture()` 管理 MediaStream、AudioContext、Worklet 和有界发送队列；异步步骤取消、迟到授权、设备 `ended` 和 Worklet `processorerror` 均有清理路径。

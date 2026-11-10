@@ -10,6 +10,7 @@ const { createIpcRouter } = require('../../../packages/core/ipc.cjs');
 const { createCaptureProvider } = require('../../../packages/providers/capture.cjs');
 const { createAudioCaptureProvider, readWavFile, validateWavCapture } = require('../../../packages/providers/audio.cjs');
 const { createMicrophoneProvider } = require('../../../packages/providers/microphone.cjs');
+const { createLocalHttpTranscriptionProvider } = require('../../../packages/providers/transcription-http.cjs');
 const { installMediaPermissions } = require('./media-permissions.cjs');
 const { createLocalTranscriptionProvider } = require('../../../packages/providers/transcription.cjs');
 const { createSuggestionProvider } = require('../../../packages/providers/suggestions.cjs');
@@ -109,7 +110,19 @@ function createAppDependencies(options = {}) {
     try { apiSessionId = (await sessionApi.create(token, metadata))?.id || null; } catch { apiSessionId = null; }
   }
   const session = options.session || createSessionMachine({ idFactory: options.idFactory || randomUUID, clock });
-  const transcription = options.transcription || createLocalTranscriptionProvider({ clock: options.timer || globalThis, mode: 'audio' });
+  let transcriptionConfigError = null;
+  let transcription = options.transcription;
+  if (!transcription) {
+    const configuredEndpoint = options.transcriptionEndpoint ?? process.env.CODING_HELP_TRANSCRIPTION_URL;
+    if (configuredEndpoint) {
+      try {
+        transcription = createLocalHttpTranscriptionProvider({ endpoint: configuredEndpoint, fetchImpl: options.transcriptionFetch || globalThis.fetch, clock: options.timer || globalThis });
+      } catch {
+        transcriptionConfigError = { code: 'TRANSCRIPTION_CONFIGURATION', message: 'The local transcription endpoint is invalid; demo transcription remains active.' };
+      }
+    }
+    transcription ||= createLocalTranscriptionProvider({ clock: options.timer || globalThis, mode: 'audio' });
+  }
   let selectedAudio = { source: 'deterministic', label: 'Demo PCM (no microphone)' };
   function makeAudio() {
     if (options.audio) return options.audio;
@@ -179,6 +192,7 @@ function createAppDependencies(options = {}) {
     source: selectedAudio.source, label: selectedAudio.label, state: audioState,
     sampleRate: selectedAudio.sampleRate || 16000, channels: selectedAudio.channels || 1,
     bitsPerSample: selectedAudio.bitsPerSample || 16,
+    transcriptionMode: transcription.getMode?.() || 'demo',
     ...(transcription.getAudioStats?.() || { bytes: 0, chunks: 0 }),
   });
   function handleAudioEvent(event) {
@@ -186,6 +200,14 @@ function createAppDependencies(options = {}) {
     const safe = { type: event.type, source: selectedAudio.source, timestamp: clock() };
     for (const key of ['sampleRate', 'channels', 'bitsPerSample']) {
       if (Number.isFinite(event[key]) && event[key] > 0) { safe[key] = event[key]; if (selectedAudio.source === 'microphone') selectedAudio[key] = event[key]; }
+    }
+    if (['audio.started', 'audio.resumed'].includes(event.type) && transcription.setAudioFormat) {
+      transcription.setAudioFormat({
+        sampleRate: Number.isInteger(event.sampleRate) ? event.sampleRate : (selectedAudio.sampleRate || 16000),
+        channels: Number.isInteger(event.channels) ? event.channels : (selectedAudio.channels || 1),
+        bitsPerSample: Number.isInteger(event.bitsPerSample) ? event.bitsPerSample : (selectedAudio.bitsPerSample || 16),
+        format: event.format || (event.bitsPerSample === 8 ? 'pcm_u8' : `pcm_s${event.bitsPerSample || 16}le`),
+      });
     }
     if (['pcm_u8', 'pcm_s16le', 'pcm_s24le', 'pcm_s32le'].includes(event.format)) safe.format = event.format;
     audioState = event.type.slice(6);
@@ -231,6 +253,7 @@ function createAppDependencies(options = {}) {
       apiSessionId = null; await createPersistedSession(metadata);
       audio = makeAudio(); lastProgressAt = clock();
       transcription.start({ emit });
+      if (transcriptionConfigError) emit({ type: 'transcription.config-error', ...transcriptionConfigError, timestamp: clock() });
       const started = audio.start({
         onEvent: handleAudioEvent,
         onChunk(chunk) {
@@ -254,7 +277,7 @@ function createAppDependencies(options = {}) {
     try {
       audio.stop();
       if (session.getSnapshot().state === 'paused') transcription.resume();
-      transcription.finishAudio?.(); transcription.stop();
+      await transcription.finishAudio?.(); transcription.stop();
       session.stop();
       emit({ type: 'session.stopped', source: 'local' }); emit({ type: 'capture.stopped', source: 'local' });
       await persistenceQueue; return session.getSnapshot();

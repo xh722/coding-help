@@ -101,6 +101,8 @@ function createLocalTranscriptionProvider({ clock = globalThis, mode = 'demo' } 
     getAudioStats() {
       return { bytes: audioBytes, chunks: audioChunks };
     },
+    setAudioFormat() { return true; },
+    getMode() { return mode; },
   };
 }
 
