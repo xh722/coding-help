@@ -46,8 +46,26 @@ function createAppDependencies(options = {}) {
   const store = options.store || (options.storePath ? createJsonStore(options.storePath) : memoryStore());
   const localApi = options.localApi || createLocalApi({ host: '127.0.0.1', port: 0, clock });
   let apiStarted = false;
+  let apiStartPromise = null;
   let offline = false;
-  async function ensureApiStarted() { if (!apiStarted) { await localApi.start(); apiStarted = true; } return localApi.address(); }
+  async function ensureApiStarted() {
+    if (apiStarted) return localApi.address();
+    if (!apiStartPromise) {
+      apiStartPromise = (async () => {
+        await localApi.start();
+        apiStarted = true;
+        return localApi.address();
+      })();
+    }
+    const pending = apiStartPromise;
+    try { return await pending; } finally { if (apiStartPromise === pending) apiStartPromise = null; }
+  }
+  async function stopApi() {
+    if (apiStartPromise) { try { await apiStartPromise; } catch {} }
+    if (!apiStarted) return;
+    await localApi.stop();
+    apiStarted = false;
+  }
   const fallbackAuth = createDefaultAuthTransport({ clock });
   const authTransport = options.authTransport || createLocalApiAuthTransport({ localApi, ensureStarted: ensureApiStarted, fallback: fallbackAuth, onUnavailable: () => { offline = true; } });
   const auth = options.auth || createAuthService({ transport: authTransport, store, clock });
@@ -91,7 +109,7 @@ function createAppDependencies(options = {}) {
   }
   function createWindows() { if (!windows.dashboard || windows.dashboard.isDestroyed?.()) createWindow('dashboard'); if (!windows.overlay || windows.overlay.isDestroyed?.()) createWindow('overlay'); return { ...windows }; }
   function registerIpc(ipcMain) { if (ipcMain?.handle) ipcMain.handle('local-rebuild:invoke', (event, command, payload) => router.dispatch(command, payload, { source: 'renderer', windowId: event?.sender?.id })); }
-  return { localApi, ensureApiStarted, getApiAddress: () => localApi.address(), stopApi: () => localApi.stop(), get offline() { return offline; }, setOfflineMode: () => { offline = true; }, auth, session, capture, transcription, suggestions, router, handlers, windows, createWindow, createWindows, registerIpc, emit };
+  return { localApi, ensureApiStarted, getApiAddress: () => localApi.address(), stopApi, get offline() { return offline; }, setOfflineMode: () => { offline = true; }, auth, session, capture, transcription, suggestions, router, handlers, windows, createWindow, createWindows, registerIpc, emit };
 }
 
 function runElectronApp(electron) { const { app, ipcMain, screen, desktopCapturer } = electron; const deps = createAppDependencies({ electron, screen, desktopCapturer, localApi: electron.__localApi, storePath: path.join(app.getPath('userData'), 'local-rebuild-auth.json') }); deps.registerIpc(ipcMain); app.whenReady().then(async () => { try { await deps.ensureApiStarted(); } catch { deps.setOfflineMode(); } deps.createWindows(); }); app.on('before-quit', () => { deps.stopApi(); }); app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); }); app.on('activate', () => deps.createWindows()); return deps; }

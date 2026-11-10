@@ -146,3 +146,21 @@ test('local API authentication errors do not trigger offline fallback', async ()
     globalThis.fetch = previousFetch;
   }
 });
+
+test('local API startup is shared and can restart after stop', async () => {
+  const { createAppDependencies } = require('../apps/desktop/main/index.cjs');
+  let starts = 0;
+  let stops = 0;
+  const localApi = {
+    start: async () => { starts += 1; await new Promise((resolve) => setTimeout(resolve, 5)); },
+    stop: async () => { stops += 1; },
+    address: () => ({ host: '127.0.0.1', port: 43123 }),
+  };
+  const deps = createAppDependencies({ localApi, clock: () => 1 });
+  await Promise.all([deps.ensureApiStarted(), deps.ensureApiStarted()]);
+  assert.equal(starts, 1);
+  await deps.stopApi();
+  assert.equal(stops, 1);
+  await deps.ensureApiStarted();
+  assert.equal(starts, 2);
+});
