@@ -85,6 +85,63 @@ test('transcription stop is idempotent and prevents queued emissions', () => {
   assert.equal(clock.pending(), 0);
 });
 
+test('transcription counts Buffer and Uint8Array input while active and paused', () => {
+  const clock = createFakeClock();
+  const provider = createLocalTranscriptionProvider({ clock });
+  assert.deepEqual(provider.getAudioStats(), { bytes: 0, chunks: 0 });
+  provider.start();
+  assert.equal(provider.pushAudio(Buffer.from([1, 2])), true);
+  provider.pause();
+  const input = Uint8Array.from([9, 3, 4, 5, 9]).subarray(1, 4);
+  assert.equal(provider.pushAudio(input), true);
+  assert.deepEqual(provider.getAudioStats(), { bytes: 5, chunks: 2 });
+  const snapshot = provider.getAudioStats();
+  snapshot.bytes = 999;
+  assert.deepEqual(provider.getAudioStats(), { bytes: 5, chunks: 2 });
+  provider.stop();
+});
+
+test('transcription rejects invalid audio input without changing counts', () => {
+  const provider = createLocalTranscriptionProvider({ clock: createFakeClock() });
+  provider.start();
+  for (const input of [undefined, null, 'pcm', [1, 2], new ArrayBuffer(2), new Uint16Array(2), new DataView(new ArrayBuffer(2)), {}]) {
+    assert.throws(() => provider.pushAudio(input), TypeError);
+  }
+  assert.deepEqual(provider.getAudioStats(), { bytes: 0, chunks: 0 });
+  provider.stop();
+});
+
+test('transcription accepts audio only while active or paused and stop clears counts', () => {
+  const clock = createFakeClock();
+  const provider = createLocalTranscriptionProvider({ clock });
+  const chunk = Buffer.from([1, 2]);
+  assert.equal(provider.pushAudio(chunk), false);
+  provider.start();
+  provider.pushAudio(chunk);
+  clock.runAll();
+  assert.equal(provider.pushAudio(chunk), false);
+  assert.deepEqual(provider.getAudioStats(), { bytes: 2, chunks: 1 });
+  provider.stop();
+  provider.stop();
+  assert.deepEqual(provider.getAudioStats(), { bytes: 0, chunks: 0 });
+  assert.equal(provider.pushAudio(chunk), false);
+  assert.deepEqual(provider.getAudioStats(), { bytes: 0, chunks: 0 });
+});
+
+test('audio input does not emit or appear in transcription event payloads', () => {
+  const clock = createFakeClock();
+  const events = [];
+  const provider = createLocalTranscriptionProvider({ clock });
+  provider.start({ emit: (event) => events.push(event) });
+  provider.pushAudio(Buffer.from('private audio'));
+  assert.deepEqual(events, []);
+  clock.runAll();
+  assert.deepEqual(events, [
+    { type: 'transcript.partial', text: 'Local capture started', timestamp: 1010 },
+    { type: 'transcript.final', text: 'This is a deterministic transcript.', timestamp: 1020 },
+  ]);
+});
+
 test('suggestions are local and derive from the final transcript', () => {
   const provider = createSuggestionProvider();
   assert.deepEqual(provider.suggest('This is a deterministic transcript.'), {

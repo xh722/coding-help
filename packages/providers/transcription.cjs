@@ -8,6 +8,8 @@ function createLocalTranscriptionProvider({ clock = globalThis } = {}) {
   let state = 'idle';
   let pendingTimer = null;
   let partialEmitted = false;
+  let audioBytes = 0;
+  let audioChunks = 0;
   const now = typeof clock.now === 'function' ? clock.now.bind(clock) : Date.now;
 
   const scheduleFinal = () => {
@@ -60,6 +62,20 @@ function createLocalTranscriptionProvider({ clock = globalThis } = {}) {
       pendingTimer = null;
       state = 'stopped';
       emit = null;
+      audioBytes = 0;
+      audioChunks = 0;
+    },
+    pushAudio(chunk) {
+      if (!Buffer.isBuffer(chunk) && !(chunk instanceof Uint8Array)) {
+        throw new TypeError('Audio chunks must be Buffer or Uint8Array.');
+      }
+      if (state !== 'active' && state !== 'paused') return false;
+      audioBytes += chunk.byteLength;
+      audioChunks += 1;
+      return true;
+    },
+    getAudioStats() {
+      return { bytes: audioBytes, chunks: audioChunks };
     },
   };
 }
