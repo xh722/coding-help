@@ -50,6 +50,10 @@ jobs:
           cache: npm
       - name: Install desktop test dependencies
         run: npm ci
+      - name: Configure Chromium sandbox helper on the temporary runner
+        run: |
+          sudo chown root:root node_modules/electron/dist/chrome-sandbox
+          sudo chmod 4755 node_modules/electron/dist/chrome-sandbox
       - name: Exercise real Electron with a synthetic WAV
         env:
           DEBUG: pw:browser
