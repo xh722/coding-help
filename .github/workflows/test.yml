@@ -27,6 +27,8 @@ jobs:
         run: npm test
       - name: Check optional faster-whisper server boundary
         run: npm run test:asr-server
+      - name: Check optional ASR runtime preflight
+        run: npm run test:asr-runtime
       - name: Check syntax
         run: npm run check
       - name: Check whitespace

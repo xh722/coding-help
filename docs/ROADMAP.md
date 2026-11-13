@@ -69,6 +69,7 @@
 - [x] 系统音频只读能力探测；不会申请屏幕/摄像头权限或启动音频流。
 - [x] 本地 ASR 协议参考 fixture：真实 loopback HTTP、WAV 校验和固定响应；不冒充实际语音识别模型。
 - [x] 可选 `faster-whisper` loopback 服务骨架、模型缺失 503、WAV 校验和 CPU/int8 配置；实际模型部署和准确率验收仍未完成。
+- [x] ASR runtime 预检：模型和依赖缺失时返回明确的未验证状态，成功加载本地模型才返回通过；实际语音质量验收仍未完成。
 - [x] Linux bundle 发布门禁：CI 可锁定来源提交 SHA，清单不匹配时拒绝验收；签名、更新下载和回滚仍未实现。
 - [x] Debian x64 可安装包：`build:deb`/`check:deb` 验证包元数据、启动器、桌面入口和内部 bundle 清单。
 - [x] 物理硬件只读预检：确认当前容器无 `/dev/snd`、无 ALSA 声卡和不可用 PulseAudio；物理验收仍阻塞。

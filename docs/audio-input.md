@@ -37,6 +37,14 @@ WHISPER_MODEL=/path/to/model npm run asr:faster-whisper
 CODING_HELP_TRANSCRIPTION_URL=http://127.0.0.1:43123/transcribe npm start
 ```
 
+启动服务前可以先运行本地模型预检：
+
+```bash
+WHISPER_MODEL=/path/to/model npm run asr:preflight
+```
+
+预检只使用本地文件；依赖、模型目录或模型加载失败会返回 `NOT VERIFIED` 和退出码 2，不会被当成通过。
+
 服务默认使用 CPU `int8` 和 4 个 CPU 线程，只监听 loopback；也可设置 `WHISPER_DEVICE`、`WHISPER_COMPUTE_TYPE`。服务严格校验 PCM WAV 和 `Content-Length`，限制并发与推理资源。模型路径缺失、依赖未安装或模型加载失败时服务仍可启动用于 `/healthz` 诊断，但返回 503，不会返回固定文本或伪造识别。需要允许下载命名模型时显式传 `--allow-model-download`，仓库不会替用户下载模型。
 
 ## 使用麦克风
