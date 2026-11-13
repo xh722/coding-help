@@ -45,6 +45,17 @@ WHISPER_MODEL=/path/to/model npm run asr:preflight
 
 预检只使用本地文件；依赖、模型目录或模型加载失败会返回 `NOT VERIFIED` 和退出码 2，不会被当成通过。
 
+如果希望桌面应用负责服务生命周期，可以额外提供命令的 JSON argv 数组。应用只会调用数组中的第一个元素和参数，不经过 shell；启动前会轮询 loopback `/healthz`，失败时最多重试，退出应用时发送 `SIGTERM` 并在超时后清理子进程：
+
+```bash
+export CODING_HELP_TRANSCRIPTION_URL=http://127.0.0.1:43123/transcribe
+export CODING_HELP_ASR_COMMAND='["python3","services/local-asr/faster_whisper_server.py"]'
+export WHISPER_MODEL=/path/to/model
+npm start
+```
+
+配置 supervisor 后，点击 **Start** 前必须先通过健康检查；服务无法启动时会保持 idle 并显示固定的本地服务不可用错误，不会伪造转写结果。`audio.get-status` 会额外返回 `asrService` 的 `state`、进程号和尝试次数，但不会返回命令、模型路径、响应正文或异常文本。未设置 `CODING_HELP_ASR_COMMAND` 时仍使用原来的外部 loopback 服务或演示模式。
+
 服务默认使用 CPU `int8` 和 4 个 CPU 线程，只监听 loopback；也可设置 `WHISPER_DEVICE`、`WHISPER_COMPUTE_TYPE`。服务严格校验 PCM WAV 和 `Content-Length`，限制并发与推理资源。模型路径缺失、依赖未安装或模型加载失败时服务仍可启动用于 `/healthz` 诊断，但返回 503，不会返回固定文本或伪造识别。需要允许下载命名模型时显式传 `--allow-model-download`，仓库不会替用户下载模型。
 
 ## 使用麦克风

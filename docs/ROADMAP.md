@@ -22,6 +22,7 @@
 - [ ] **具体本地 ASR 模型**：loopback HTTP 适配器、WAV 封装、超时和返回校验已完成；待选择、授权并在本机部署实际 Whisper/Vosk 等模型服务。仓库不下载或捆绑模型。
 - [ ] **更新链兼容性**：验证 manifest、签名校验、下载和回滚行为后再设计更新适配器。
 - [x] **Linux 可安装桌面包**：生成 Debian x64 包，提供 `/opt` bundle、系统启动器和桌面入口，并在 CI 解包复验 manifest；代码签名、自动更新和 Windows/macOS 安装包仍未完成。
+- [x] **本地 ASR 生命周期管理**：可选 supervisor 以 loopback `/healthz` 为就绪条件，使用无 shell 的 JSON argv 启动子进程，有限重试、静态错误、SIGTERM/SIGKILL 清理和状态暴露均有自动化测试；实际模型和识别质量仍未验证。
 
 ## 后续目标与完成条件
 

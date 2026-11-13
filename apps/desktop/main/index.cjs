@@ -11,6 +11,7 @@ const { createCaptureProvider } = require('../../../packages/providers/capture.c
 const { createAudioCaptureProvider, readWavFile, validateWavCapture } = require('../../../packages/providers/audio.cjs');
 const { createMicrophoneProvider } = require('../../../packages/providers/microphone.cjs');
 const { createLocalHttpTranscriptionProvider } = require('../../../packages/providers/transcription-http.cjs');
+const { createAsrSupervisor, parseAsrCommand } = require('../../../packages/providers/asr-supervisor.cjs');
 const { createSystemAudioCapabilityProvider } = require('../../../packages/providers/system-audio.cjs');
 const { installMediaPermissions } = require('./media-permissions.cjs');
 const { createLocalTranscriptionProvider } = require('../../../packages/providers/transcription.cjs');
@@ -112,9 +113,18 @@ function createAppDependencies(options = {}) {
   }
   const session = options.session || createSessionMachine({ idFactory: options.idFactory || randomUUID, clock });
   let transcriptionConfigError = null;
+  const configuredEndpoint = options.transcriptionEndpoint ?? process.env.CODING_HELP_TRANSCRIPTION_URL;
+  let asrSupervisor = options.asrSupervisor || null;
+  const configuredAsrCommand = options.asrCommand || parseAsrCommand(process.env.CODING_HELP_ASR_COMMAND);
+  if (!asrSupervisor && configuredEndpoint && configuredAsrCommand) {
+    try {
+      asrSupervisor = createAsrSupervisor({ endpoint: configuredEndpoint, command: configuredAsrCommand, fetchImpl: options.asrHealthFetch || options.transcriptionFetch || globalThis.fetch, startupTimeoutMs: options.asrStartupTimeoutMs, healthIntervalMs: options.asrHealthIntervalMs, terminateTimeoutMs: options.asrTerminateTimeoutMs, maxRetries: options.asrMaxRetries });
+    } catch {
+      transcriptionConfigError = { code: 'TRANSCRIPTION_CONFIGURATION', message: 'The local transcription service configuration is invalid; demo transcription remains active.' };
+    }
+  }
   let transcription = options.transcription;
   if (!transcription) {
-    const configuredEndpoint = options.transcriptionEndpoint ?? process.env.CODING_HELP_TRANSCRIPTION_URL;
     if (configuredEndpoint) {
       try {
         transcription = createLocalHttpTranscriptionProvider({ endpoint: configuredEndpoint, fetchImpl: options.transcriptionFetch || globalThis.fetch, clock: options.timer || globalThis });
@@ -196,6 +206,7 @@ function createAppDependencies(options = {}) {
     bitsPerSample: selectedAudio.bitsPerSample || 16,
     transcriptionMode: transcription.getMode?.() || 'demo',
     ...(transcription.getAudioStats?.() || { bytes: 0, chunks: 0 }),
+    ...(asrSupervisor?.getStatus ? { asrService: asrSupervisor.getStatus() } : {}),
   });
   function handleAudioEvent(event) {
     if (!['audio.requesting', 'audio.started', 'audio.paused', 'audio.resumed', 'audio.stopped', 'audio.error'].includes(event?.type)) return;
@@ -251,6 +262,16 @@ function createAppDependencies(options = {}) {
     if (!['idle', 'stopped'].includes(session.getSnapshot().state)) return { ok: false, error: { code: 'INVALID_STATE', message: 'A session is already running.' } };
     startingSession = true; audioFailure = null;
     try {
+      if (asrSupervisor) {
+        try {
+          await asrSupervisor.ensureReady();
+        } catch {
+          const error = { code: 'ASR_UNAVAILABLE', message: 'The local transcription service is unavailable.' };
+          asrSupervisor.getStatus?.();
+          emit({ type: 'transcription.error', ...error, timestamp: clock() });
+          return { ok: false, error };
+        }
+      }
       session.start(metadata); await persistenceQueue;
       apiSessionId = null; await createPersistedSession(metadata);
       audio = makeAudio(); lastProgressAt = clock();
@@ -373,10 +394,10 @@ function createAppDependencies(options = {}) {
   }
   let shutdownPromise;
   const shutdown = () => {
-    shutdownPromise ||= serialize(async () => { await stopSession(); audio.stop(); transcription.stop(); await persistenceQueue; await stopApi(); });
+    shutdownPromise ||= serialize(async () => { await stopSession(); audio.stop(); transcription.stop(); await asrSupervisor?.stop?.(); await persistenceQueue; await stopApi(); });
     return shutdownPromise;
   };
-  return { localApi, sessionApi, ensureApiStarted, getApiAddress: () => localApi.address(), stopApi, shutdown, flushSessionEvents: () => persistenceQueue, get offline() { return offline; }, setOfflineMode: () => { offline = true; }, auth, session, get audio() { return audio; }, capture, systemAudio, transcription, suggestions, router, handlers, windows, createWindow, createWindows, registerIpc, registerMediaPermissions, emit };
+  return { localApi, sessionApi, ensureApiStarted, getApiAddress: () => localApi.address(), stopApi, shutdown, flushSessionEvents: () => persistenceQueue, get offline() { return offline; }, setOfflineMode: () => { offline = true; }, auth, session, get audio() { return audio; }, capture, systemAudio, transcription, asrSupervisor, suggestions, router, handlers, windows, createWindow, createWindows, registerIpc, registerMediaPermissions, emit };
 }
 
 function runElectronApp(electron) {

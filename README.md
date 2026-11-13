@@ -16,7 +16,7 @@
 | 本地登录 | 已完成 | 仅接受演示账户，支持刷新、退出和过期 token |
 | 本地 API | 已完成 | loopback 绑定、登录、刷新、用户、会话历史、事件、结构化错误；会话/事件可持久化恢复 |
 | 会话状态机 | 已完成 | idle、active、paused、stopped；支持停止后再次开始，音频错误会停止并提示；生命周期事件写入历史记录 |
-| 本地转写 provider | 已完成（演示 + 可选 loopback ASR） | 默认只显示 PCM 统计；配置 `CODING_HELP_TRANSCRIPTION_URL` 后可把 PCM WAV 发给用户自建的 loopback ASR 服务 |
+| 本地转写 provider | 已完成（演示 + 可选 loopback ASR） | 默认只显示 PCM 统计；配置 `CODING_HELP_TRANSCRIPTION_URL` 后可把 PCM WAV 发给用户自建的 loopback ASR 服务；可选 supervisor 负责本地服务健康检查、有限重试和退出清理 |
 | 平台中立音频 provider | 已完成 | 可在 Dashboard 选择本地 PCM WAV，完整帧分块、暂停/恢复、输入统计和错误清理 |
 | 本地建议 provider | 已完成 | 根据最后一条转写生成本地建议，不访问网络 |
 | 屏幕枚举 | 已完成 | 通过 Electron `screen` 枚举显示器，`desktopCapturer` 获取屏幕图像 |
@@ -82,6 +82,16 @@ Debian 包把完整 bundle 安装到 `/opt/interviewcoder-local-rebuild`，并�
 7. 使用 `Take screenshot` 测试显示器枚举和截图 IPC；截图会显示在 Dashboard 的 Latest screenshot 区域。
 
 默认使用三秒演示 PCM；也可以点击 `Choose WAV file` 读取本地文件，或点击 `Use microphone` 选择麦克风。选择和刷新设备不会录音；系统设备变化会自动刷新列表，已拔出的设备会回退到 Default microphone 并提示。点击 `Start` 后才申请麦克风访问。`Pause` 释放音轨，`Resume` 重新采集；停止、刷新和退出登录均结束采集。默认转写是演示输出；配置本机 ASR loopback 服务后才会执行实际识别。详细用法、权限排错、格式限制和隐私说明见 [音频输入指南](docs/audio-input.md)。
+
+需要应用自动管理本地 ASR 子进程时，同时设置 `CODING_HELP_ASR_COMMAND` 为 JSON argv 数组：
+
+```bash
+export CODING_HELP_TRANSCRIPTION_URL=http://127.0.0.1:43123/transcribe
+export CODING_HELP_ASR_COMMAND='["python3","services/local-asr/faster_whisper_server.py"]'
+npm start
+```
+
+应用只接受 loopback `/healthz` 通过后开始会话，失败时不会进入 active；退出时会清理子进程。完整配置见 [音频输入指南](docs/audio-input.md)。
 
 ## 测试与验证
 
@@ -149,6 +159,7 @@ packages/providers/
   microphone.cjs        麦克风采集标识、IPC 数据校验及生命周期
   transcription.cjs     演示转写及 PCM 输入统计
   transcription-http.cjs 可选 loopback ASR WAV 适配器
+  asr-supervisor.cjs  本地 ASR 子进程、健康检查、重试和退出清理
   suggestions.cjs       本地建议 provider
   capture.cjs           显示器/截图接口和注入式实现
 
@@ -233,4 +244,4 @@ Windows 原版动态验证已按要求记为待办并跳过，不阻塞上述标
 
 ## 最终验证
 
-PCM/WAV 阶段证据见 [音频阶段验证报告](reports/audio-input-verification-2026-11-10.md)；麦克风实现、测试结果和未验证范围见 [麦克风阶段验证报告](reports/microphone-verification-2026-11-10.md)；可选 ASR 适配器见 [本地 ASR 验证报告](reports/local-asr-adapter-verification-2026-11-10.md)；bundle 验证见 [Linux bundle 报告](reports/linux-bundle-verification-2026-11-10.md)；系统音频探测见 [系统音频报告](reports/system-audio-capability-verification-2026-11-10.md)；物理设备检查见 [硬件验收报告](reports/physical-audio-hardware-verification-2026-11-10.md)；Windows/更新边界见 [边界验证报告](reports/windows-update-boundary-verification-2026-11-10.md)；faster-whisper 服务见 [ASR 服务报告](reports/faster-whisper-server-verification-2026-11-10.md)；运行时预检见 [ASR runtime 预检报告](reports/asr-runtime-preflight-verification-2026-11-13.md)。当前全量门禁为 135 项 Node 测试、19 项 Python ASR 测试、50 个 JS 文件语法检查、Linux bundle 清单校验、Debian 包解包校验和真实 Electron smoke。提交作者邮箱为 `19856850715@163.com`。
+PCM/WAV 阶段证据见 [音频阶段验证报告](reports/audio-input-verification-2026-11-10.md)；麦克风实现、测试结果和未验证范围见 [麦克风阶段验证报告](reports/microphone-verification-2026-11-10.md)；可选 ASR 适配器见 [本地 ASR 验证报告](reports/local-asr-adapter-verification-2026-11-10.md)；ASR 生命周期见 [ASR supervisor 验证报告](reports/asr-supervisor-verification-2026-11-13.md)；bundle 验证见 [Linux bundle 报告](reports/linux-bundle-verification-2026-11-10.md)；系统音频探测见 [系统音频报告](reports/system-audio-capability-verification-2026-11-10.md)；物理设备检查见 [硬件验收报告](reports/physical-audio-hardware-verification-2026-11-10.md)；Windows/更新边界见 [边界验证报告](reports/windows-update-boundary-verification-2026-11-10.md)；faster-whisper 服务见 [ASR 服务报告](reports/faster-whisper-server-verification-2026-11-10.md)；运行时预检见 [ASR runtime 预检报告](reports/asr-runtime-preflight-verification-2026-11-13.md)。当前全量门禁为 142 项 Node 测试、19 项 Python ASR 测试、52 个 JS 文件语法检查、Linux bundle 清单校验、Debian 包解包校验和真实 Electron smoke。提交作者邮箱为 `19856850715@163.com`。

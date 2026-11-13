@@ -48,3 +48,41 @@ test('HTTP ASR failure is sanitized and stop remains awaitable', async () => {
   assert.equal(failure.code, 'TRANSCRIPTION_UNAVAILABLE'); assert.doesNotMatch(JSON.stringify(events), /private|secret|token/);
   await deps.shutdown();
 });
+
+test('configured ASR supervisor is ready before a session starts and stops on shutdown', async () => {
+  const calls = [];
+  const supervisor = {
+    ensureReady: async () => { calls.push('ready'); return { state: 'ready', pid: 9001, attempts: 1 }; },
+    getStatus: () => ({ state: 'ready', pid: 9001, attempts: 1 }),
+    stop: async () => { calls.push('stop'); return { state: 'stopped', pid: null, attempts: 0 }; },
+  };
+  const deps = createAppDependencies({
+    audio: fakeAudio(), asrSupervisor: supervisor, transcriptionEndpoint: 'http://127.0.0.1:43123/transcribe',
+    transcriptionFetch: async () => new Response(JSON.stringify({ text: 'ready' })),
+    auth: { getSession: () => ({ accessToken: 'test' }) }, sessionApi: { create: async () => ({ id: 'saved' }), append: async () => {} },
+  });
+  assert.deepEqual((await invoke(deps, 'audio.get-status')).asrService, { state: 'ready', pid: 9001, attempts: 1 });
+  await invoke(deps, 'session.start', { title: 'Managed ASR' });
+  assert.deepEqual(calls, ['ready']);
+  await deps.shutdown();
+  assert.deepEqual(calls, ['ready', 'stop']);
+});
+
+test('ASR supervisor startup failure prevents an active session and stays sanitized', async () => {
+  const supervisor = {
+    ensureReady: async () => { throw Object.assign(new Error('/private/model token=secret'), { code: 'ASR_START_FAILED' }); },
+    getStatus: () => ({ state: 'failed', pid: null, attempts: 3 }),
+    stop: async () => {},
+  };
+  const events = []; const deps = createAppDependencies({
+    audio: fakeAudio(), asrSupervisor: supervisor, transcriptionEndpoint: 'http://127.0.0.1:43123/transcribe',
+    auth: { getSession: () => ({ accessToken: 'test' }) }, sessionApi: { create: async () => ({ id: 'saved' }), append: async (_t, _id, event) => events.push(event) },
+  });
+  deps.windows.dashboard = { isDestroyed: () => false, webContents: { send: (_channel, event) => events.push(event) } };
+  const result = await invoke(deps, 'session.start', { title: 'Unavailable ASR' });
+  assert.equal(result.ok, false); assert.equal(result.error.code, 'ASR_UNAVAILABLE');
+  assert.equal(result.error.message, 'The local transcription service is unavailable.');
+  assert.equal((await invoke(deps, 'session.get-current')).state, 'idle');
+  assert.doesNotMatch(JSON.stringify(events), /private|secret|token/);
+  await deps.shutdown();
+});
