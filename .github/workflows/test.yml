@@ -62,6 +62,8 @@ jobs:
         run: |
           npm run build:linux
           npm run check:linux-bundle
+          npm run build:deb
+          npm run check:deb
           sudo chown root:root dist/interviewcoder-local-rebuild-linux-x64/chrome-sandbox
           sudo chmod 4755 dist/interviewcoder-local-rebuild-linux-x64/chrome-sandbox
       - name: Exercise real Electron with synthetic WAV and microphone

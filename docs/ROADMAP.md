@@ -21,7 +21,7 @@
 - [ ] **系统音频与 Windows 原版采集对照**：系统回放采集和原版 agent 的协议兼容仍未实现；Windows 动态验证继续跳过。
 - [ ] **具体本地 ASR 模型**：loopback HTTP 适配器、WAV 封装、超时和返回校验已完成；待选择、授权并在本机部署实际 Whisper/Vosk 等模型服务。仓库不下载或捆绑模型。
 - [ ] **更新链兼容性**：验证 manifest、签名校验、下载和回滚行为后再设计更新适配器。
-- [ ] **桌面打包**：完成 provider 和安全边界验证后，生成可安装的 Electron 构建产物。
+- [x] **Linux 可安装桌面包**：生成 Debian x64 包，提供 `/opt` bundle、系统启动器和桌面入口，并在 CI 解包复验 manifest；代码签名、自动更新和 Windows/macOS 安装包仍未完成。
 
 ## 后续目标与完成条件
 
@@ -70,5 +70,6 @@
 - [x] 本地 ASR 协议参考 fixture：真实 loopback HTTP、WAV 校验和固定响应；不冒充实际语音识别模型。
 - [x] 可选 `faster-whisper` loopback 服务骨架、模型缺失 503、WAV 校验和 CPU/int8 配置；实际模型部署和准确率验收仍未完成。
 - [x] Linux bundle 发布门禁：CI 可锁定来源提交 SHA，清单不匹配时拒绝验收；签名、更新下载和回滚仍未实现。
+- [x] Debian x64 可安装包：`build:deb`/`check:deb` 验证包元数据、启动器、桌面入口和内部 bundle 清单。
 - [x] 物理硬件只读预检：确认当前容器无 `/dev/snd`、无 ALSA 声卡和不可用 PulseAudio；物理验收仍阻塞。
 - [x] Windows preflight 静态安全加强：默认核对授权样本 SHA-256，hash 不匹配时拒绝进入动态阶段；实际 Windows 运行仍阻塞。

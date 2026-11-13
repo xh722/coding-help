@@ -26,7 +26,7 @@
 | 系统音频能力探测 | 已完成，实际采集待验 | 只读检查 Electron/平台路径和桌面源，不申请 display 权限、不启动音频流 |
 | 真实云端 AI/账户/订阅 | 未完成 | 原版服务端逻辑不在安装包中，无法从客户端完整恢复 |
 | 原版自动更新链 | 未完成 | 只保留静态逆向证据，未接入原版更新源 |
-| Linux x64 桌面 bundle | 已完成，发布签名待做 | 可复现复制 Electron runtime + 本地应用，生成 SHA-256 manifest；不包含原版安装器或 native 文件 |
+| Linux x64 桌面 bundle / Debian 包 | 已完成，签名待做 | 可复现复制 Electron runtime + 本地应用，生成 SHA-256 manifest，并可生成 Debian x64 包；不包含原版安装器或 native 文件 |
 | Windows 动态行为对照 | 待做 | 需要授权的 Windows 虚拟机和隔离网络环境 |
 
 因此，当前版本适合本地运行、理解架构和继续替换 provider，不能声称已经完全复刻原软件。
@@ -51,6 +51,18 @@ npm run check:linux-bundle
 ```
 
 bundle 只包含当前仓库的 `apps/`、`packages/`、`services/` 和已安装 Electron runtime。`bundle-manifest.json` 记录每个文件的大小和 SHA-256；`check:linux-bundle` 会校验清单、启动器权限和原版安装器/native 文件排除。CI 传入 `CODING_HELP_EXPECTED_REVISION` 时还会校验 bundle 来源提交 SHA。当前没有签名、自动更新或 Windows/macOS 安装包。
+
+在 Debian/Ubuntu x64 环境可以生成可安装包：
+
+```bash
+npm run build:linux
+npm run check:linux-bundle
+npm run build:deb
+npm run check:deb
+sudo apt install ./dist/interviewcoder-local-rebuild_0.1.0_amd64.deb
+```
+
+Debian 包把完整 bundle 安装到 `/opt/interviewcoder-local-rebuild`，并提供 `/usr/bin/interviewcoder-local-rebuild` 和桌面入口。包检查器会解包并重新验证内部 manifest；当前包没有代码签名、自动更新或卸载后数据迁移逻辑。
 
 启动后使用本地演示账户：
 
@@ -221,4 +233,4 @@ Windows 原版动态验证已按要求记为待办并跳过，不阻塞上述标
 
 ## 最终验证
 
-PCM/WAV 阶段证据见 [音频阶段验证报告](reports/audio-input-verification-2026-11-10.md)；麦克风实现、测试结果和未验证范围见 [麦克风阶段验证报告](reports/microphone-verification-2026-11-10.md)；可选 ASR 适配器见 [本地 ASR 验证报告](reports/local-asr-adapter-verification-2026-11-10.md)；bundle 验证见 [Linux bundle 报告](reports/linux-bundle-verification-2026-11-10.md)；系统音频探测见 [系统音频报告](reports/system-audio-capability-verification-2026-11-10.md)；物理设备检查见 [硬件验收报告](reports/physical-audio-hardware-verification-2026-11-10.md)；Windows/更新边界见 [边界验证报告](reports/windows-update-boundary-verification-2026-11-10.md)；faster-whisper 服务见 [ASR 服务报告](reports/faster-whisper-server-verification-2026-11-10.md)。当前全量门禁为 132 项 Node 测试、16 项 Python ASR 边界测试、47 个 JS 文件语法检查、Linux bundle 清单校验和真实 Electron smoke。提交作者邮箱为 `19856850715@163.com`。
+PCM/WAV 阶段证据见 [音频阶段验证报告](reports/audio-input-verification-2026-11-10.md)；麦克风实现、测试结果和未验证范围见 [麦克风阶段验证报告](reports/microphone-verification-2026-11-10.md)；可选 ASR 适配器见 [本地 ASR 验证报告](reports/local-asr-adapter-verification-2026-11-10.md)；bundle 验证见 [Linux bundle 报告](reports/linux-bundle-verification-2026-11-10.md)；系统音频探测见 [系统音频报告](reports/system-audio-capability-verification-2026-11-10.md)；物理设备检查见 [硬件验收报告](reports/physical-audio-hardware-verification-2026-11-10.md)；Windows/更新边界见 [边界验证报告](reports/windows-update-boundary-verification-2026-11-10.md)；faster-whisper 服务见 [ASR 服务报告](reports/faster-whisper-server-verification-2026-11-10.md)。当前全量门禁为 134 项 Node 测试、16 项 Python ASR 边界测试、50 个 JS 文件语法检查、Linux bundle 清单校验、Debian 包解包校验和真实 Electron smoke。提交作者邮箱为 `19856850715@163.com`。

@@ -10,6 +10,8 @@
     "smoke": "node tools/electron-smoke.cjs",
     "build:linux": "node tools/build-linux-bundle.cjs",
     "check:linux-bundle": "node tools/check-linux-bundle.cjs",
+    "build:deb": "node tools/build-linux-deb.cjs",
+    "check:deb": "node tools/check-linux-deb.cjs",
     "asr:fixture": "node tools/local-asr-fixture.cjs",
     "test:asr-server": "python3 -m unittest tests/local_asr_server_test.py",
     "asr:faster-whisper": "python3 services/local-asr/faster_whisper_server.py"
