@@ -23,7 +23,7 @@ function copyExecutable(source, destination) {
   fs.chmodSync(destination, 0o755);
 }
 
-function buildDeb(bundle = process.env.CODING_HELP_BUNDLE_DIR || defaultBundleOutput, output = process.env.CODING_HELP_DEB_FILE || defaultOutput) {
+function buildDeb(bundle = process.env.CODING_HELP_BUNDLE_DIR || defaultBundleOutput, output = process.env.CODING_HELP_DEB_FILE || defaultOutput, options = {}) {
   bundle = path.resolve(bundle); output = path.resolve(output);
   for (const required of ['electron', 'run.sh']) if (!fs.existsSync(path.join(bundle, required))) throw new Error(`Bundle file is missing: ${path.join(bundle, required)}`);
   const appPackage = readAppPackage(bundle);
@@ -49,7 +49,15 @@ function buildDeb(bundle = process.env.CODING_HELP_BUNDLE_DIR || defaultBundleOu
       'Description: InterviewCoder Local Rebuild', ' Local offline Electron desktop rebuild.', '',
     ].join('\n'));
     fs.mkdirSync(path.dirname(output), { recursive: true });
-    execFileSync('dpkg-deb', ['--build', '--root-owner-group', stage, output], { stdio: 'pipe' });
+    const temporaryOutput = `${output}.tmp-${process.pid}`;
+    fs.rmSync(temporaryOutput, { force: true });
+    const runPackageBuilder = options.runPackageBuilder || ((stagePath, outputPath) => execFileSync('dpkg-deb', ['--build', '--root-owner-group', stagePath, outputPath], { stdio: 'pipe' }));
+    try {
+      runPackageBuilder(stage, temporaryOutput);
+      fs.renameSync(temporaryOutput, output);
+    } finally {
+      fs.rmSync(temporaryOutput, { force: true });
+    }
     return { output, version: appPackage.version };
   } finally {
     fs.rmSync(stage, { recursive: true, force: true });

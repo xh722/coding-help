@@ -6,6 +6,7 @@
 - `run.sh` 使用同一 runtime 启动 `resources/app`；`bundle-manifest.json` 为每个文件记录大小和 SHA-256。
 - `npm run check:linux-bundle` 校验 manifest 完整性、hash、启动器可执行权限、runtime/app 存在，并拒绝原版安装器和 native 文件名；CI 传入 `CODING_HELP_EXPECTED_REVISION` 时还会拒绝来源提交 SHA 不一致的 bundle。
 - `npm run build:deb` 将 bundle 包装成 Debian x64 包，安装到 `/opt/interviewcoder-local-rebuild`，并提供 `/usr/bin/interviewcoder-local-rebuild` 与桌面入口；`npm run check:deb` 解包后重新执行 bundle 校验。
+- Debian 构建先写临时 archive，完成后才原子替换目标文件；`dpkg-deb` 中断或失败不会留下可误用的半成品包。
 - `dist/` 被 Git 忽略，构建产物不会进入提交；签名、自动更新、Windows/macOS 安装包不在本项范围。
 
 ## 本地结果

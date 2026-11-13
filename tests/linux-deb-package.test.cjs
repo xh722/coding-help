@@ -7,6 +7,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
+const { buildDeb } = require('../tools/build-linux-deb.cjs');
 
 function fixtureBundle() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'coding-help-deb-bundle-'));
@@ -67,6 +68,20 @@ test('Debian package checker validates the embedded bundle revision', () => {
     });
     assert.notEqual(bad.status, 0);
     assert.match(`${bad.stdout}\n${bad.stderr}`, /source revision/i);
+  } finally {
+    fs.rmSync(bundle, { recursive: true, force: true });
+    fs.rmSync(path.dirname(output), { recursive: true, force: true });
+  }
+});
+
+test('Debian package builder does not leave a partial archive when dpkg-deb fails', () => {
+  const bundle = fixtureBundle();
+  const output = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'coding-help-deb-failure-')), 'fixture.deb');
+  try {
+    assert.throws(() => buildDeb(bundle, output, {
+      runPackageBuilder: () => { throw new Error('simulated dpkg-deb failure'); },
+    }), /simulated dpkg-deb failure/);
+    assert.equal(fs.existsSync(output), false);
   } finally {
     fs.rmSync(bundle, { recursive: true, force: true });
     fs.rmSync(path.dirname(output), { recursive: true, force: true });
