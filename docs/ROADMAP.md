@@ -10,7 +10,7 @@
 - [ ] **4. 具体本地 ASR 模型服务**：在用户授权并部署 Whisper/Vosk 等模型服务后，接入已完成的 loopback 协议并验证语言、延迟和错误恢复。
 - [ ] **5. 真实硬件验收**：在授权 Linux/Windows/macOS 设备验证权限、设备切换、拔插、暂停恢复和长时间运行。
 - [ ] **6. Windows 动态行为对照**：使用授权 Windows 虚拟机运行原版 preflight，记录 agent、采集和网络边界；当前环境跳过。
-- [ ] **7. 更新链兼容性**：基于动态证据验证 manifest、签名、下载和回滚，再设计本地更新适配器。
+- [x] **7. 离线更新适配器**：本地 manifest、GPG detached signature、归档哈希、tar 路径检查、原子 current/previous 切换和 rollback 已完成；原版更新服务器兼容仍待动态证据。
 
 - [ ] **Windows 动态验证**：使用授权 Windows x64 虚拟机运行 `tools/windows-dynamic-preflight.ps1`，再观察原版安装器、`interviewcoder.exe`、`agent-windows.exe`、录音/屏幕采集、stdin/stdout 协议和网络边界。
   - 状态：已记录，当前跳过。
@@ -20,7 +20,7 @@
 - [ ] **物理麦克风与平台验收**：标准浏览器麦克风采集已实现；待在真实 Linux/Windows/macOS 设备验证系统权限、设备切换、拔插和长期运行。合成设备测试不代表硬件验证。
 - [ ] **系统音频与 Windows 原版采集对照**：系统回放采集和原版 agent 的协议兼容仍未实现；Windows 动态验证继续跳过。
 - [ ] **具体本地 ASR 模型**：loopback HTTP 适配器、WAV 封装、超时和返回校验已完成；待选择、授权并在本机部署实际 Whisper/Vosk 等模型服务。仓库不下载或捆绑模型。
-- [ ] **更新链兼容性**：验证 manifest、签名校验、下载和回滚行为后再设计更新适配器。
+- [x] **离线更新链**：`build:update`、`apply-update.cjs` 和 `docs/offline-updates.md` 已完成本地签名、完整性、原子切换、失败清理和回滚；网络下载、自动更新和原版 generic updater 仍未接入。
 - [x] **Linux 可安装桌面包**：生成 Debian x64 包，提供 `/opt` bundle、系统启动器和桌面入口，并在 CI 解包复验 manifest；代码签名、自动更新和 Windows/macOS 安装包仍未完成。
 - [x] **本地 ASR 生命周期管理**：可选 supervisor 以 loopback `/healthz` 为就绪条件，使用无 shell 的 JSON argv 启动子进程，有限重试、静态错误、SIGTERM/SIGKILL 清理和状态暴露均有自动化测试；实际模型和识别质量仍未验证。
 

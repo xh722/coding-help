@@ -12,6 +12,7 @@
     "check:linux-bundle": "node tools/check-linux-bundle.cjs",
     "build:deb": "node tools/build-linux-deb.cjs",
     "check:deb": "node tools/check-linux-deb.cjs",
+    "build:update": "node tools/build-update.cjs",
     "asr:fixture": "node tools/local-asr-fixture.cjs",
     "test:asr-server": "python3 -m unittest tests/local_asr_server_test.py",
     "test:asr-runtime": "python3 -m unittest tests/asr_runtime_preflight_test.py",
