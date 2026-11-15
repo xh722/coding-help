@@ -9,9 +9,15 @@ import importlib.util
 import io
 import json
 import os
+import sys
 import time
 from pathlib import Path
 from typing import Any, Callable
+
+try:
+    import resource
+except ImportError:  # pragma: no cover - unavailable on Windows
+    resource = None
 
 
 def _validate_wav(body: bytes) -> dict[str, int]:
@@ -28,6 +34,37 @@ def _elapsed_ms(clock: Callable[[], float], started: float) -> float:
     return round(max(0.0, (clock() - started) * 1000), 2)
 
 
+def _default_usage() -> dict[str, float] | None:
+    if resource is None:
+        return None
+    usage = resource.getrusage(resource.RUSAGE_SELF)
+    return {
+        "user": float(usage.ru_utime),
+        "system": float(usage.ru_stime),
+        "maxrss": float(usage.ru_maxrss),
+    }
+
+
+def _rss_mb(value: float) -> float:
+    # Linux reports ru_maxrss in KiB while macOS reports bytes.
+    divisor = 1024 * 1024 if sys.platform == "darwin" else 1024
+    return round(max(0.0, value) / divisor, 2)
+
+
+def _process_metrics(
+    start_usage: dict[str, float] | None,
+    end_usage: dict[str, float] | None,
+) -> dict[str, Any]:
+    if not start_usage or not end_usage:
+        return {"available": False}
+    return {
+        "available": True,
+        "cpu_user_ms": round(max(0.0, (end_usage["user"] - start_usage["user"]) * 1000), 2),
+        "cpu_system_ms": round(max(0.0, (end_usage["system"] - start_usage["system"]) * 1000), 2),
+        "max_rss_mb": _rss_mb(end_usage["maxrss"]),
+    }
+
+
 def run_doctor(
     model_name: str | None,
     *,
@@ -39,30 +76,46 @@ def run_doctor(
     cpu_threads: int = 4,
     allow_download: bool = False,
     clock: Callable[[], float] = time.perf_counter,
+    usage_reader: Callable[[], dict[str, float] | None] | None = None,
 ) -> dict[str, Any]:
     result: dict[str, Any] = {"ok": False, "provider": "faster-whisper", "versions": {}}
+
+    usage_reader = usage_reader or _default_usage
+    try:
+        start_usage = usage_reader()
+    except Exception:
+        start_usage = None
+
+    def finish(payload: dict[str, Any]) -> dict[str, Any]:
+        try:
+            end_usage = usage_reader()
+        except Exception:
+            end_usage = None
+        payload["process"] = _process_metrics(start_usage, end_usage)
+        return payload
+
     if not model_name:
         result["error"] = "model path is required"
-        return result
+        return finish(result)
     if not isinstance(cpu_threads, int) or cpu_threads < 1:
         result["error"] = "cpu thread count is invalid"
-        return result
+        return finish(result)
 
     model_path = Path(model_name).expanduser()
     is_local_model = model_path.exists()
     if is_local_model and not model_path.is_dir():
         result["error"] = "model path is not a directory"
-        return result
+        return finish(result)
     if not is_local_model and not allow_download:
         result["error"] = "model path is missing"
-        return result
+        return finish(result)
 
     if module is None:
         try:
             module = (importer or importlib.import_module)("faster_whisper")
         except ImportError:
             result["error"] = "faster-whisper is not installed"
-            return result
+            return finish(result)
     version = getattr(module, "__version__", None)
     if isinstance(version, str) and version:
         result["versions"]["faster_whisper"] = version
@@ -78,7 +131,7 @@ def run_doctor(
         )
     except Exception:
         result["error"] = "faster-whisper model could not be loaded"
-        return result
+        return finish(result)
     result["model"] = {
         "source": "local" if is_local_model else "named",
         "load_ms": _elapsed_ms(clock, started),
@@ -90,14 +143,14 @@ def run_doctor(
             audio_format = _validate_wav(body)
         except Exception:
             result["error"] = "audio file could not be read or is not valid PCM WAV"
-            return result
+            return finish(result)
         started = clock()
         try:
             segments, info = model.transcribe(io.BytesIO(body), beam_size=5, vad_filter=True)
             transcript_chars = sum(len(str(getattr(segment, "text", "")).strip()) for segment in segments)
         except Exception:
             result["error"] = "faster-whisper audio probe failed"
-            return result
+            return finish(result)
         result["audio"] = {
             "format": audio_format,
             "duration_ms": round(audio_format["frames"] * 1000 / audio_format["sampleRate"], 2),
@@ -106,7 +159,7 @@ def run_doctor(
             "transcript_chars": transcript_chars,
         }
     result["ok"] = True
-    return result
+    return finish(result)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -135,6 +188,12 @@ def main(argv: list[str] | None = None) -> int:
         message = f"ASR doctor verified: model load {model.get('load_ms', 0):.2f} ms"
         if audio:
             message += f", inference {audio['inference_ms']:.2f} ms, transcript chars {audio['transcript_chars']}"
+        process = result.get("process", {})
+        if process.get("available"):
+            message += (
+                f", CPU user/system {process['cpu_user_ms']:.2f}/{process['cpu_system_ms']:.2f} ms"
+                f", peak RSS {process['max_rss_mb']:.2f} MB"
+            )
         print(message)
     else:
         print(f"NOT VERIFIED: {result['error']}")

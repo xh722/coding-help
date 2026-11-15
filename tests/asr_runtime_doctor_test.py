@@ -72,6 +72,23 @@ class AsrRuntimeDoctorTests(unittest.TestCase):
         self.assertNotIn("secret transcript", str(result))
         self.assertEqual(result["audio"]["format"]["sampleRate"], 16000)
 
+    def test_report_includes_process_cpu_and_peak_memory_metrics(self):
+        class FakeModel:
+            def __init__(self, _name, **_kwargs):
+                pass
+
+        usage = iter([
+            {"user": 1.0, "system": 0.5, "maxrss": 1024},
+            {"user": 1.25, "system": 0.75, "maxrss": 4096},
+        ])
+        module = types.SimpleNamespace(__version__="fake-1", WhisperModel=FakeModel)
+        with tempfile.TemporaryDirectory() as directory:
+            result = doctor.run_doctor(directory, module=module, importer=None, usage_reader=lambda: next(usage))
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["process"]["cpu_user_ms"], 250.0)
+        self.assertEqual(result["process"]["cpu_system_ms"], 250.0)
+        self.assertEqual(result["process"]["max_rss_mb"], 4.0)
+
 
 if __name__ == "__main__":
     unittest.main()

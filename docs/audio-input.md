@@ -61,7 +61,7 @@ WHISPER_MODEL=/path/to/model npm run asr:doctor
 WHISPER_MODEL=/path/to/model npm run asr:doctor -- --audio /path/to/sample.wav --json
 ```
 
-诊断报告只输出 provider、依赖版本、模型来源、加载耗时、音频格式、语言、推理耗时和转写字符数，不输出原始转写文本或音频内容；`--audio` 仍只接受整数 PCM WAV。命名模型下载需要同时传 `--allow-model-download`，默认保持离线。
+诊断报告只输出 provider、依赖版本、模型来源、加载耗时、音频格式、语言、推理耗时、转写字符数，以及进程 CPU 用户/系统耗时和峰值 RSS 内存，不输出原始转写文本或音频内容；`--audio` 仍只接受整数 PCM WAV。命名模型下载需要同时传 `--allow-model-download`，默认保持离线。资源指标在当前平台可用时报告，否则标记为不可用。
 
 如果希望桌面应用负责服务生命周期，可以额外提供命令的 JSON argv 数组。应用只会调用数组中的第一个元素和参数，不经过 shell；启动前会轮询 loopback `/healthz`，失败时最多重试，退出应用时发送 `SIGTERM` 并在超时后清理子进程：
 
