@@ -3,7 +3,7 @@
 const COMMANDS = Object.freeze([
   'auth.login', 'auth.logout', 'auth.get-session',
   'session.start', 'session.pause', 'session.resume', 'session.stop', 'session.get-current', 'session.list', 'session.delete', 'session.export', 'session.import',
-  'capture.get-displays', 'capture.take-screenshot',
+  'capture.get-displays', 'capture.take-screenshot', 'capture.ocr-screen',
   'audio.select-file', 'audio.use-demo', 'audio.get-status', 'audio.use-microphone',
   'audio.microphone-ready', 'audio.microphone-chunk', 'audio.microphone-failed', 'audio.get-system-capabilities',
   'overlay.set-visible', 'overlay.set-bounds', 'app.get-version',
@@ -32,6 +32,7 @@ const schemas = {
   'audio.get-system-capabilities': { required: [], fields: {} },
   'capture.get-displays': { required: [], fields: {} },
   'capture.take-screenshot': { required: [], fields: { displayId: 'string' } },
+  'capture.ocr-screen': { required: [], fields: {} },
   'overlay.set-visible': { required: ['visible'], fields: { visible: 'boolean' } },
   'overlay.set-bounds': { required: ['x', 'y', 'width', 'height'], fields: { x: 'number', y: 'number', width: 'number', height: 'number' } },
   'app.get-version': { required: [], fields: {} },

@@ -14,6 +14,7 @@ const { createMicrophoneProvider } = require('../../../packages/providers/microp
 const { createLocalHttpTranscriptionProvider } = require('../../../packages/providers/transcription-http.cjs');
 const { createAsrSupervisor, parseAsrCommand } = require('../../../packages/providers/asr-supervisor.cjs');
 const { createSystemAudioCapabilityProvider } = require('../../../packages/providers/system-audio.cjs');
+const { createScreenOcrProvider } = require('../../../packages/providers/screen-ocr.cjs');
 const { installMediaPermissions } = require('./media-permissions.cjs');
 const { createLocalTranscriptionProvider } = require('../../../packages/providers/transcription.cjs');
 const { createSuggestionProvider } = require('../../../packages/providers/suggestions.cjs');
@@ -163,6 +164,7 @@ function createAppDependencies(options = {}) {
   const electron = options.electron || null;
   const desktopCapturer = options.desktopCapturer || electron?.desktopCapturer;
   const systemAudio = options.systemAudio || createSystemAudioCapabilityProvider({ platform: process.platform, desktopCapturer });
+  const screenOcr = options.screenOcr || createScreenOcrProvider();
   const screen = options.screen || electron?.screen;
   const windows = { dashboard: null, overlay: null };
   const dashboardUrl = pathToFileURL(path.join(__dirname, '../renderer/index.html')).href;
@@ -337,6 +339,73 @@ function createAppDependencies(options = {}) {
       return dataUrl ? { ok: true, displayId: String(displayId), dataUrl } : { ok: false, error: { code: 'CAPTURE_UNAVAILABLE', message: 'Screen capture is unavailable' } };
     },
   });
+  let screenOcrInFlight = false;
+  const screenOcrMessages = {
+    OCR_UNAVAILABLE: 'Local screen OCR is unavailable. Install Tesseract with Chinese and English language data.',
+    OCR_TIMEOUT: 'Screen OCR timed out. Try again with a simpler screen.',
+    OCR_INVALID_RESULT: 'Screen OCR returned invalid data.',
+    CAPTURE_UNAVAILABLE: 'Screen capture is unavailable.',
+    DISPLAY_NOT_FOUND: 'The primary display is unavailable.',
+  };
+  async function ocrPrimaryDisplay() {
+    if (screenOcrInFlight) return { ok: false, error: { code: 'OCR_BUSY', message: 'Screen OCR is already running.' } };
+    if (!desktopCapturer?.getSources || typeof screenOcr?.recognize !== 'function') {
+      const result = { ok: false, error: { code: 'CAPTURE_UNAVAILABLE', message: screenOcrMessages.CAPTURE_UNAVAILABLE } };
+      broadcast({ type: 'screen-ocr.failed', ...result.error, timestamp: clock() });
+      return result;
+    }
+    screenOcrInFlight = true;
+    broadcast({ type: 'screen-ocr.started', display: 'primary', timestamp: clock() });
+    try {
+      const primary = screen?.getPrimaryDisplay?.() || capture.getDisplays()?.[0];
+      const displayId = primary?.id === undefined ? primary?.id : String(primary.id);
+      if (displayId === undefined || displayId === null) {
+        const result = { ok: false, error: { code: 'DISPLAY_NOT_FOUND', message: screenOcrMessages.DISPLAY_NOT_FOUND } };
+        broadcast({ type: 'screen-ocr.failed', ...result.error, timestamp: clock() });
+        return result;
+      }
+      const bounds = primary?.bounds || {};
+      const width = Number.isFinite(bounds.width) && bounds.width > 0 ? Math.round(bounds.width) : 1920;
+      const height = Number.isFinite(bounds.height) && bounds.height > 0 ? Math.round(bounds.height) : 1080;
+      const sources = await desktopCapturer.getSources({ types: ['screen'], thumbnailSize: { width, height } });
+      const source = sources.find((item) => String(item.display_id || item.id) === String(displayId));
+      const png = source?.thumbnail?.toPNG?.();
+      if (!png || png.length === 0) {
+        const result = { ok: false, error: { code: 'CAPTURE_UNAVAILABLE', message: screenOcrMessages.CAPTURE_UNAVAILABLE } };
+        broadcast({ type: 'screen-ocr.failed', ...result.error, timestamp: clock() });
+        return result;
+      }
+      const recognized = await screenOcr.recognize({ png });
+      if (!recognized?.ok) {
+        const code = screenOcrMessages[recognized?.code] ? recognized.code : 'OCR_UNAVAILABLE';
+        const result = { ok: false, error: { code, message: screenOcrMessages[code] } };
+        broadcast({ type: 'screen-ocr.failed', ...result.error, timestamp: clock() });
+        return result;
+      }
+      const result = { ok: true, text: recognized.text, language: recognized.language, chars: recognized.chars };
+      broadcast({ type: 'screen-ocr.result', text: result.text, language: result.language, chars: result.chars, timestamp: clock() });
+      return result;
+    } catch {
+      const result = { ok: false, error: { code: 'CAPTURE_UNAVAILABLE', message: screenOcrMessages.CAPTURE_UNAVAILABLE } };
+      broadcast({ type: 'screen-ocr.failed', ...result.error, timestamp: clock() });
+      return result;
+    } finally {
+      screenOcrInFlight = false;
+    }
+  }
+  let ocrShortcutRegistered = false;
+  function registerScreenOcrShortcut(globalShortcut) {
+    if (ocrShortcutRegistered || typeof globalShortcut?.register !== 'function') return false;
+    try {
+      ocrShortcutRegistered = globalShortcut.register('CommandOrControl+Shift+O', () => { ocrPrimaryDisplay().catch(() => {}); });
+    } catch { ocrShortcutRegistered = false; }
+    return ocrShortcutRegistered;
+  }
+  function unregisterScreenOcrShortcut(globalShortcut) {
+    if (!ocrShortcutRegistered) return;
+    try { globalShortcut?.unregister?.('CommandOrControl+Shift+O'); } catch {}
+    ocrShortcutRegistered = false;
+  }
   const handlers = {
     'auth.login': ({ email, password }) => auth.login(email, password),
     'auth.logout': () => serialize(async () => { await stopSession(); await auth.logout(); return { ok: true }; }),
@@ -383,7 +452,7 @@ function createAppDependencies(options = {}) {
       if (!token || typeof sessionApi.delete !== 'function') return { ok: false, error: { code: 'AUTH_REQUIRED', message: 'Sign in required' } };
       try { await sessionApi.delete(token, id); return { ok: true }; } catch { return { ok: false, error: { code: 'SESSION_DELETE_FAILED', message: 'Unable to delete session' } }; }
     },
-    'capture.get-displays': () => capture.getDisplays(), 'capture.take-screenshot': ({ displayId }) => capture.takeScreenshot(displayId),
+    'capture.get-displays': () => capture.getDisplays(), 'capture.take-screenshot': ({ displayId }) => capture.takeScreenshot(displayId), 'capture.ocr-screen': () => ocrPrimaryDisplay(),
     'overlay.set-visible': ({ visible }) => { const overlay = windows.overlay; if (!overlay || overlay.isDestroyed?.()) return { ok: false, error: { code: 'OVERLAY_UNAVAILABLE', message: 'Overlay is unavailable' } }; visible ? overlay.show() : overlay.hide(); return { ok: true, visible }; },
     'overlay.set-bounds': (bounds) => { const overlay = windows.overlay; if (!overlay || overlay.isDestroyed?.()) return { ok: false, error: { code: 'OVERLAY_UNAVAILABLE', message: 'Overlay is unavailable' } }; if (![bounds.x, bounds.y, bounds.width, bounds.height].every(Number.isFinite) || bounds.width <= 0 || bounds.height <= 0) return { ok: false, error: { code: 'INVALID_BOUNDS', message: 'Invalid overlay bounds' } }; overlay.setBounds(bounds); return { ok: true, bounds: { ...bounds } }; },
     'app.get-version': () => electron?.app?.getVersion?.() || options.version || DEFAULT_VERSION,
@@ -414,17 +483,17 @@ function createAppDependencies(options = {}) {
     ipcMain?.handle?.('local-rebuild:invoke', (event, command, payload) => {
       const trusted = Object.values(windows).some((win) => win && win.webContents === event?.sender);
       if (!trusted || event.senderFrame !== event.sender.mainFrame) return { ok: false, error: { code: 'INVALID_CONTEXT', message: 'Invalid renderer context' } };
-      const microphoneCommand = typeof command === 'string' && (command.startsWith('audio.microphone-') || command === 'audio.use-microphone' || command === 'audio.get-system-capabilities' || (selectedAudio.source === 'microphone' && ['session.start', 'session.resume'].includes(command)));
-      if (microphoneCommand && (event.sender !== windows.dashboard?.webContents || event.sender.getURL() !== dashboardUrl)) return { ok: false, error: { code: 'INVALID_CONTEXT', message: 'Invalid renderer context' } };
+      const dashboardOnlyCommand = typeof command === 'string' && (command.startsWith('audio.microphone-') || command === 'audio.use-microphone' || command === 'audio.get-system-capabilities' || command === 'capture.ocr-screen' || (selectedAudio.source === 'microphone' && ['session.start', 'session.resume'].includes(command)));
+      if (dashboardOnlyCommand && (event.sender !== windows.dashboard?.webContents || event.sender.getURL() !== dashboardUrl)) return { ok: false, error: { code: 'INVALID_CONTEXT', message: 'Invalid renderer context' } };
       return router.dispatch(command, payload, { source: 'renderer', windowId: event.sender.id });
     });
   }
   let shutdownPromise;
   const shutdown = () => {
-    shutdownPromise ||= serialize(async () => { await stopSession(); audio.stop(); transcription.stop(); await asrSupervisor?.stop?.(); await persistenceQueue; await stopApi(); });
+    shutdownPromise ||= serialize(async () => { unregisterScreenOcrShortcut(electron?.globalShortcut); await stopSession(); audio.stop(); transcription.stop(); await asrSupervisor?.stop?.(); await persistenceQueue; await stopApi(); });
     return shutdownPromise;
   };
-  return { localApi, sessionApi, ensureApiStarted, getApiAddress: () => localApi.address(), stopApi, shutdown, flushSessionEvents: () => persistenceQueue, get offline() { return offline; }, setOfflineMode: () => { offline = true; }, auth, session, get audio() { return audio; }, capture, systemAudio, transcription, asrSupervisor, suggestions, router, handlers, windows, createWindow, createWindows, registerIpc, registerMediaPermissions, emit };
+  return { localApi, sessionApi, ensureApiStarted, getApiAddress: () => localApi.address(), stopApi, shutdown, flushSessionEvents: () => persistenceQueue, get offline() { return offline; }, setOfflineMode: () => { offline = true; }, auth, session, get audio() { return audio; }, capture, systemAudio, screenOcr, transcription, asrSupervisor, suggestions, router, handlers, windows, createWindow, createWindows, registerIpc, registerMediaPermissions, registerScreenOcrShortcut, unregisterScreenOcrShortcut, ocrPrimaryDisplay, emit };
 }
 
 function runElectronApp(electron) {
@@ -432,7 +501,7 @@ function runElectronApp(electron) {
   const userData = app.getPath('userData');
   const deps = createAppDependencies({ electron, screen, desktopCapturer, localApi: electron.__localApi, storePath: path.join(userData, 'local-rebuild-auth.json'), sessionStorePath: path.join(userData, 'local-rebuild-sessions.json') });
   deps.registerIpc(ipcMain);
-  app.whenReady().then(async () => { deps.registerMediaPermissions(); try { await deps.ensureApiStarted(); } catch { deps.setOfflineMode(); } deps.createWindows(); });
+  app.whenReady().then(async () => { deps.registerMediaPermissions(); deps.registerScreenOcrShortcut(electron.globalShortcut); try { await deps.ensureApiStarted(); } catch { deps.setOfflineMode(); } deps.createWindows(); });
   let quitting = false;
   app.on('before-quit', (event) => {
     if (quitting) return;

@@ -39,7 +39,9 @@
         <p id="audio-source" class="muted">Demo PCM (no microphone)</p>
         <p id="audio-status" role="status" aria-live="polite">Idle</p>
       </div>
-      <div class="toolbar"><button id="screenshot" type="button" class="secondary" disabled>Take screenshot</button><button id="system-audio-check" type="button" class="secondary" disabled>Check system audio</button><button id="overlay" type="button" class="secondary">Show overlay</button></div>
+      <div class="toolbar"><button id="screenshot" type="button" class="secondary" disabled>Take screenshot</button><button id="screen-ocr" type="button" class="secondary" aria-keyshortcuts="Control+Shift+O" disabled>Recognize screen</button><button id="system-audio-check" type="button" class="secondary" disabled>Check system audio</button><button id="overlay" type="button" class="secondary">Show overlay</button></div>
+      <p id="screen-ocr-status" class="muted" role="status" aria-live="polite">Ready</p>
+      <pre id="screen-ocr-result" class="history-detail" hidden></pre>
       <p id="system-audio-status" class="muted" role="status" aria-live="polite" hidden></p>
       <figure id="screenshot-preview" class="screenshot-preview" hidden><figcaption>Latest screenshot</figcaption><img id="screenshot-image" alt="Latest desktop screenshot"></figure>
     </section>

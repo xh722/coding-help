@@ -87,6 +87,51 @@ test('main composes transcription events and enforces secure windows', async (t)
   assert.deepEqual(created[0].options.webPreferences, { contextIsolation: true, nodeIntegration: false, sandbox: true, preload: require('node:path').join(require('node:path').dirname(__dirname), 'apps/desktop/preload/index.cjs') });
 });
 
+test('main OCR captures the primary display in memory and broadcasts only the result', async (t) => {
+  const { createAppDependencies } = require('../apps/desktop/main/index.cjs');
+  const events = [];
+  let captureOptions;
+  let receivedPng;
+  const deps = createAppDependencies({
+    screen: { getPrimaryDisplay: () => ({ id: 7, bounds: { width: 1280, height: 720 } }) },
+    desktopCapturer: {
+      getSources: async (options) => {
+        captureOptions = options;
+        return [{ display_id: '7', thumbnail: { toPNG: () => Buffer.from('png-bytes') } }];
+      },
+    },
+    screenOcr: {
+      recognize: async ({ png }) => { receivedPng = png; return { ok: true, text: '状态解释', language: 'chi_sim+eng', chars: 4 }; },
+    },
+    clock: () => 100,
+  });
+  deps.windows.dashboard = { isDestroyed: () => false, webContents: { send: (_channel, event) => events.push(event) } };
+  t.after(() => deps.shutdown());
+
+  const result = await deps.router.dispatch('capture.ocr-screen', {}, { source: 'renderer', windowId: 1 });
+  assert.deepEqual(result, { ok: true, text: '状态解释', language: 'chi_sim+eng', chars: 4 });
+  assert.deepEqual(captureOptions, { types: ['screen'], thumbnailSize: { width: 1280, height: 720 } });
+  assert.deepEqual(receivedPng, Buffer.from('png-bytes'));
+  assert.deepEqual(events.map((event) => event.type), ['screen-ocr.started', 'screen-ocr.result']);
+  assert.equal(events.some((event) => event.dataUrl), false);
+});
+
+test('main registers and unregisters the screen OCR shortcut', () => {
+  const { createAppDependencies } = require('../apps/desktop/main/index.cjs');
+  const deps = createAppDependencies();
+  let registration;
+  let unregistered;
+  const globalShortcut = {
+    register: (accelerator, callback) => { registration = { accelerator, callback }; return true; },
+    unregister: (accelerator) => { unregistered = accelerator; },
+  };
+  assert.equal(deps.registerScreenOcrShortcut(globalShortcut), true);
+  assert.equal(registration.accelerator, 'CommandOrControl+Shift+O');
+  assert.equal(deps.registerScreenOcrShortcut(globalShortcut), false);
+  deps.unregisterScreenOcrShortcut(globalShortcut);
+  assert.equal(unregistered, 'CommandOrControl+Shift+O');
+});
+
 test('main wires audio lifecycle and chunks into transcription idempotently', async () => {
   const { createAppDependencies } = require('../apps/desktop/main/index.cjs');
   const events = [];
