@@ -20,3 +20,16 @@ test('permission request and check deny all but expected Dashboard audio from it
   assert.equal(ask(sender, 'display-capture'), false); assert.equal(check(sender, 'notifications', 'file://', details), false);
   sender.getURL = () => 'file:///test/overlay.html'; assert.equal(ask(), false);
 });
+
+test('display-capture is allowed only for a pending trusted system-audio request', () => {
+  const url = 'file:///test/index.html'; const sender = { getURL: () => url }; let expected = false; let check; let request;
+  installMediaPermissions({
+    session: { setPermissionCheckHandler(fn) { check = fn; }, setPermissionRequestHandler(fn) { request = fn; } },
+    getDashboard: () => ({ webContents: sender }), dashboardUrl: url, isExpected: (kind) => kind === 'system' && expected,
+  });
+  const details = { requestingUrl: url, isMainFrame: true, mediaType: 'video', mediaTypes: ['video'] };
+  const ask = () => { let result; request(sender, 'display-capture', (allowed) => { result = allowed; }, details); return result; };
+  assert.equal(ask(), false); assert.equal(check(sender, 'display-capture', 'file://', details), false);
+  expected = true; assert.equal(ask(), true); assert.equal(check(sender, 'display-capture', 'file://', details), true);
+  assert.equal(check(sender, 'display-capture', 'file://', { ...details, mediaType: 'audio', mediaTypes: ['audio'] }), false);
+});

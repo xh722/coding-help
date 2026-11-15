@@ -11,7 +11,7 @@ function installMediaPermissions({ session, getDashboard, dashboardUrl, isExpect
   const expected = (kind) => typeof isExpected === 'function' && isExpected(kind);
   const allowMediaAudio = (contents, details) => details?.mediaType === 'audio' && trusted(contents, details) && expected('microphone');
   const allowDisplayCapture = (contents, details) => trusted(contents, details) && expected('system') &&
-    Array.isArray(details?.mediaTypes) && details.mediaTypes.includes('video') && details.mediaTypes.includes('audio');
+    (details?.mediaType === 'video' || !Array.isArray(details?.mediaTypes) || details.mediaTypes.includes('video'));
   session.setPermissionCheckHandler((contents, permission, _origin, details) =>
     (permission === 'media' && allowMediaAudio(contents, details)) || (permission === 'display-capture' && allowDisplayCapture(contents, details)));
   session.setPermissionRequestHandler((contents, permission, callback, details) => {

@@ -1,6 +1,6 @@
-# 本地麦克风 / PCM / WAV 音频输入
+# 本地麦克风 / 系统音频 / PCM / WAV 输入
 
-标准麦克风、音频文件和 PCM 数据已接入桌面会话；默认转写器是演示实现，**不会识别语音**。如配置用户自己运行的 loopback ASR 服务，应用可在会话结束时发送 PCM WAV 并显示服务返回的文本。系统音频、Windows 原版 agent 对照和真实硬件验收继续列入待办。
+标准麦克风、系统回放、音频文件和 PCM 数据已接入桌面会话；默认转写器是演示实现，**不会识别语音**。如配置用户自己运行的 loopback ASR 服务，应用可在会话结束时发送 PCM WAV 并显示服务返回的文本。系统音频的真实平台权限、回放样本和 Windows 原版 agent 对照仍需在授权硬件/虚拟机验收。
 
 ## 可选本地 ASR
 
@@ -91,13 +91,13 @@ npm start
 4. **Stop**、**Sign out**、关闭 Dashboard、刷新页面或退出应用都会结束采集。设备断开、处理器失败或处理速度不足会终止会话并提示错误。
 5. 拒绝权限、设备被占用或找不到设备时，检查系统设置，必要时停止后刷新设备列表，重新开始。等待权限或初始化超过 30 秒会自动取消；取消之后才到达的授权结果也会立即关闭音轨。
 
-只采集用户选择的麦克风，不采集系统回放、摄像头或屏幕声音。Dashboard 的 **Check system audio** 只读取桌面源并报告当前平台是否存在潜在 display-media 路径，不申请屏幕权限、不启动流、不把摄像头或桌面画面混入音频。实际系统音频采集仍未实现。麦克风音频在本机流经 AudioWorklet 和主进程，不回放到扬声器，不上传或保存原始 PCM。历史中保存的是生命周期、格式和演示统计，不包含设备 ID、采集标识或原始音频。
+麦克风模式只采集用户选择的麦克风，不采集系统回放、摄像头或屏幕声音。Dashboard 的 **Check system audio** 仍是只读探测，不申请 display 权限；选择 **Use system audio** 后，点击 **Start** 才会请求 `getDisplayMedia({ video: true, audio: true })`。视频轨道会立即停止，音频轨道经 AudioWorklet 下混为单声道 PCM，再通过主进程送入同一个转写 provider。系统音频不回放到扬声器，不上传或保存原始 PCM；历史中只保存生命周期、格式和统计，不包含设备 ID、采集标识或桌面图像。
 
 实现通过 Chromium 的标准 `getUserMedia` 获取音频，AudioWorklet 下混为单声道 16-bit little-endian PCM。请求 16kHz，界面记录实际协商采样率；每块约 20ms。IPC 每包不超过 16384 字节，队列最多 4 个等待块及 1 个在途块，过载直接停止并提示，不静默丢块。
 
 权限仅允许正在申请/运行采集的 Dashboard 主 frame 访问 audio；摄像头、混合 audio/video、Overlay、其他 URL 和子 frame 均拒绝。主进程同时安装 [Electron permission check/request handlers](https://www.electronjs.org/docs/latest/api/session)，并核对采集标识、顺序、PCM 类型和长度。浏览器处理流程参见 [AudioWorkletProcessor.process](https://developer.mozilla.org/en-US/docs/Web/API/AudioWorkletProcessor/process)。
 
-Electron 的桌面音频路径依赖平台：Windows 可使用 display-media loopback，Linux 依赖 PipeWire 和用户选择器，macOS 14.2+ 需要 System Audio Recording 权限；官方文档还说明 macOS 权限缺失时可能得到没有样本的 ended 音轨。因此本项目把探测结果标为 `potential`，不会把探测当成实际采集成功。参考 [Electron desktopCapturer](https://www.electronjs.org/docs/latest/api/desktop-capturer)。
+Electron 的桌面音频路径依赖平台：Windows 可使用 display-media loopback，Linux 依赖 PipeWire 和用户选择器，macOS 14.2+ 需要 System Audio Recording 权限；官方文档还说明 macOS 权限缺失时可能得到没有样本的 ended 音轨。因此本项目把探测结果标为 `potential`，只有真实 `getDisplayMedia` 音轨完成 handshake 后才进入 `active`。参考 [Electron desktopCapturer](https://www.electronjs.org/docs/latest/api/desktop-capturer)。
 
 本阶段使用 Linux + Chromium 合成麦克风验证链路，**没有实测物理麦克风，也没有验证 Windows/macOS 系统权限和设备兼容性**。
 
@@ -119,6 +119,26 @@ npm run audio:preflight -- --json
 6. 停止后可以选择另一个文件、启动新会话。**Use demo PCM** 使用三秒合成静音数据，不访问麦克风。
 
 本模块只读取和分块送入音频，不提供扬声器播放。音频生命周期和演示结果进入会话历史；原始 PCM、文件完整路径和音频内容不写入历史或 renderer 事件。原文件不会被修改。
+
+## 系统音频与屏幕 OCR
+
+选择 **Use system audio** 后再点击 **Start**，Dashboard 主 frame 才会请求 `display-capture`。renderer 调用 `getDisplayMedia` 时必须同时声明 `video: true` 和 `audio` 约束；拿到流后立即停止所有视频轨道，只保留音频轨道。音频经过同一个 `pcm-worklet.js` 下混为单声道 16-bit little-endian PCM，进入与麦克风相同的转写 provider。Pause、Stop、刷新 Dashboard、退出登录、音频轨道 `ended`、权限拒绝和队列过载都会释放流、AudioContext 和采集标识。
+
+主进程只接受 Dashboard 主 frame 发来的 `audio.system-ready`、`audio.system-chunk` 和 `audio.system-failed`，每包最多 16384 字节，按采集标识和 sequence 严格校验。`display-capture` 权限只在系统音频 provider 处于 `requesting` 或 `active` 时允许；Overlay、摄像头、其他页面和无待处理采集均拒绝。Linux 需要 PipeWire 和桌面选择器；Windows/macOS 的系统音频权限和真实回放输入需要在对应设备验收。
+
+按 `CommandOrControl+Shift+O` 或点击 **Recognize screen** 会捕获主显示器的完整 PNG，并在内存中调用本地 `tesseract`：
+
+```text
+tesseract stdin stdout --psm 6 -l chi_sim+eng
+```
+
+该调用固定使用 argv、`shell: false` 和 stdin/stdout pipe。PNG 有 8 MiB 上限，OCR 超时为 3 秒，文本默认最多 32768 个字符；超限、非零退出、缺少可执行文件和超时只返回静态错误码。PNG 不写磁盘、不更新截图预览、不进入会话历史；Dashboard 只显示识别文字和状态。Linux Debian/Ubuntu 可按需安装：
+
+```bash
+sudo apt-get install -y tesseract-ocr tesseract-ocr-chi-sim tesseract-ocr-eng
+```
+
+没有 Tesseract 时快捷键仍可触发，但界面会显示本地 OCR 不可用；不会自动下载 OCR 程序或语言包。
 
 ## 支持范围
 
@@ -146,9 +166,10 @@ npm run audio:preflight -- --json
 - `createLocalTranscriptionProvider({ mode: 'audio' })` 接受 `pushAudio()`，统计 `{ bytes, chunks }`。它持续接收直到 `finishAudio()`，不会被旧演示的 20ms 定时器提前关闭。
 - `createLocalHttpTranscriptionProvider({ endpoint, fetchImpl, requestTimeoutMs })` 只接受 loopback 服务；`finishAudio()` 封装 WAV 并等待 JSON 文本。默认桌面配置仍使用上面的演示 provider。
 - `getAudioStats()` 不返回原始音频；`stop()` 清空统计。旧 `mode: 'demo'` 定时演示仍用于独立合约测试。
-- `createMicrophoneProvider()` 由主进程管理采集标识，提供相同生命周期接口及 `ready/push/fail/permissionExpected`。暂停和恢复会使用不同标识，过期音频块无法进入新采集。
+- `createMicrophoneProvider()` 和 `createSystemAudioProvider()` 由主进程管理独立采集标识，提供相同生命周期接口及 `ready/push/fail/permissionExpected`。暂停和恢复会使用不同标识，过期音频块无法进入新采集；系统音频的 `system-audio.start/stop` 控制只发送给受信任 Dashboard。
 - renderer 的 `createMicrophoneCapture()` 管理 MediaStream、AudioContext、Worklet、有界发送队列和 `devicechange` 监听；异步步骤取消、迟到授权、设备 `ended` 和 Worklet `processorerror` 均有清理路径，页面卸载时会解绑监听。
-- 其他音频实现可通过 `createAppDependencies({ audio })` 注入；系统音频仍只有能力探测，实际适配器未实现。
+- renderer 的 `createSystemAudioCapture()` 管理 `getDisplayMedia` 返回的音频轨道，立即停止视频轨道，复用 PCM Worklet 和有界发送队列；音频轨道 `ended`、权限异常、过载和页面卸载都会清理资源。
+- 其他音频实现可通过 `createAppDependencies({ audio })` 注入；系统音频默认 provider 已接入，平台真实回放仍需硬件验收。
 
 ## 验证
 

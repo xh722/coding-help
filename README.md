@@ -21,9 +21,10 @@
 | 本地建议 provider | 已完成 | 根据最后一条转写生成本地建议，不访问网络 |
 | 屏幕枚举 | 已完成 | 通过 Electron `screen` 枚举显示器，`desktopCapturer` 获取屏幕图像 |
 | 截图 IPC | 已完成 | 获取 PNG data URL 并在 Dashboard 中显示最新截图预览 |
+| 屏幕 OCR | 已完成，Tesseract 待安装 | `CommandOrControl+Shift+O` 或 Dashboard 按钮捕获主屏全屏 PNG，只在内存中调用本地 Tesseract，Dashboard 只显示识别文字，不显示截图、不写历史 |
 | 标准麦克风采集 | 已实现，硬件待验 | 设备选择、自动响应设备变更、点击开始申请权限、AudioWorklet PCM、暂停释放/恢复重连；已通过真实 Electron 合成设备验证 |
-| 系统音频/Windows 原版采集兼容 | 未完成 | 系统回放、原版 agent 协议及 Windows 动态对照仍待验证 |
-| 系统音频能力探测 | 已完成，实际采集待验 | 只读检查 Electron/平台路径和桌面源，不申请 display 权限、不启动音频流 |
+| 系统音频采集 | 已实现，平台硬件待验 | Dashboard 选择后，Start 触发 `getDisplayMedia({video:true,audio:true})`；立即停止视频轨道，只把单声道 PCM 送入现有 ASR；Windows/Linux/macOS 权限和真实回放仍待验 |
+| 系统音频能力探测 | 已完成 | 只读检查 Electron/平台路径和桌面源；实际采集另有独立 display-capture 权限和音频生命周期 |
 | 真实云端 AI/账户/订阅 | 未完成 | 原版服务端逻辑不在安装包中，无法从客户端完整恢复 |
 | 原版自动更新链 | 未完成 | 只保留静态逆向证据，未接入原版更新源 |
 | Linux x64 桌面 bundle / Debian 包 | 已完成，签名待做 | 可复现复制 Electron runtime + 本地应用，生成 SHA-256 manifest，并可生成 Debian x64 包；不包含原版安装器或 native 文件 |
@@ -90,10 +91,12 @@ Debian 包把完整 bundle 安装到 `/opt/interviewcoder-local-rebuild`，并�
 4. 观察 transcript partial/final 事件和本地 suggestion。
 5. 点击 `Pause`、`Resume` 和 `Stop` 验证状态转换。
 6. 打开 Overlay，观察 Local Mode 指示器和会话状态。
-7. 使用 `Take screenshot` 测试显示器枚举和截图 IPC；截图会显示在 Dashboard 的 Latest screenshot 区域。
-8. 在 Saved sessions 中点击 `Export backup` 导出全部本地会话；点击 `Import backup` 可从 JSON 恢复，冲突 ID 会整批拒绝；单个会话仍可用 `Export JSON` 导出。
+7. 使用 `Take screenshot` 测试显示器枚举和截图 IPC；该路径会显示在 Dashboard 的 Latest screenshot 区域。
+8. 使用 `Recognize screen` 或按 `CommandOrControl+Shift+O` 识别主屏全屏内容。截图只在内存中传给本地 OCR，界面显示识别文字，不显示截图，也不会进入会话历史。
+9. 选择 `Use system audio` 后点击 `Start`，系统会请求显示/系统音频权限；应用立即停止视频轨道，只采集回放音频并送入当前转写 provider。Linux 需要 PipeWire/桌面选择器，Windows/macOS 需要对应系统权限。
+10. 在 Saved sessions 中点击 `Export backup` 导出全部本地会话；点击 `Import backup` 可从 JSON 恢复，冲突 ID 会整批拒绝；单个会话仍可用 `Export JSON` 导出。
 
-默认使用三秒演示 PCM；也可以点击 `Choose WAV file` 读取本地文件，或点击 `Use microphone` 选择麦克风。选择和刷新设备不会录音；系统设备变化会自动刷新列表，已拔出的设备会回退到 Default microphone 并提示。点击 `Start` 后才申请麦克风访问。`Pause` 释放音轨，`Resume` 重新采集；停止、刷新和退出登录均结束采集。默认转写是演示输出；配置本机 ASR loopback 服务后才会执行实际识别。详细用法、权限排错、格式限制和隐私说明见 [音频输入指南](docs/audio-input.md)。
+默认使用三秒演示 PCM；也可以点击 `Choose WAV file` 读取本地文件、`Use microphone` 选择麦克风，或 `Use system audio` 采集系统回放。选择和刷新设备不会录音；系统设备变化会自动刷新列表，已拔出的设备会回退到 Default microphone 并提示。点击 `Start` 后才申请麦克风或 display-capture 权限。`Pause` 释放音轨，`Resume` 重新采集；停止、刷新和退出登录均结束采集。默认转写是演示输出；配置本机 ASR loopback 服务后才会执行实际识别。详细用法、权限排错、格式限制和隐私说明见 [音频输入指南](docs/audio-input.md)。
 
 会话备份格式、隐私清理、导入冲突和恢复边界见 [本地会话备份](docs/session-backup.md)。
 
@@ -137,9 +140,10 @@ npm test
 - loopback ASR 参考 fixture 的真实 HTTP/WAV 验证；fixture 固定返回文本，不宣称语音识别。
 - 可选 `faster-whisper` loopback 服务骨架；模型和依赖由用户自行安装，缺失时返回 503，不伪造识别结果。`asr:preflight` 默认只读本地模型，传 `--allow-model-download` 才会尝试下载命名模型。
 - `asr:doctor` 本地运行时诊断和 WAV 基准：输出依赖版本、模型加载/推理耗时、重复推理的平均/最小/P95、格式、语言、文本长度、CPU 用户/系统耗时和峰值 RSS 内存；提供参考文本时还会计算脱敏的 CER/WER，不写出原始转写内容；`asr:smoke` 可启动本地 faster-whisper 服务并验证 `/healthz`、`/transcribe` 和退出清理；`audio:preflight` 只读检查 ALSA/PulseAudio 和显示环境，不打开录音流。已用一份授权中文 WAV 完成真实模型和 loopback 验证，但样本 CER/WER 偏高，不能宣称识别质量通过。
+- 屏幕 OCR 和系统音频的 provider、IPC、权限门控、全屏主屏选择、视频轨道释放、PCM 队列和静态错误码有独立自动化测试；本机实际运行仍需要 Tesseract、桌面服务、PipeWire 和对应系统权限。
 - loopback ASR 地址校验、PCM WAV 封装、返回文本校验、超时、停止取消、请求上限和错误脱敏。
 
-`npm run smoke` 使用真实 Electron 运行桌面流程（需要显示服务；无显示器的 Linux 使用 `xvfb-run -a npm run smoke`）。文件选择器返回合成 WAV；麦克风由 Chromium 合成媒体设备提供，经过真实 AudioWorklet、Preload 和主进程验证。覆盖采集、暂停释放、恢复重连、停止、刷新、退出登录，以及摄像头/Overlay/非采集状态拒绝。不录制物理麦克风，不跳过权限处理。
+`npm run smoke` 使用真实 Electron 运行桌面流程（需要显示服务；无显示器的 Linux 使用 `xvfb-run -a npm run smoke`）。文件选择器返回合成 WAV；麦克风由 Chromium 合成媒体设备提供，经过真实 AudioWorklet、Preload 和主进程验证。覆盖采集、暂停释放、恢复重连、停止、刷新、退出登录，以及摄像头/Overlay/非采集状态拒绝。不录制物理麦克风，不跳过权限处理。系统音频需要真实桌面回放和平台权限，OCR 需要 `tesseract` 及 `chi_sim`/`eng` 数据，自动化测试不会伪造这两类硬件/可执行文件。
 
 语法检查：
 
@@ -160,6 +164,7 @@ apps/desktop/
     index.html         Dashboard 页面
     app.js             登录、会话、事件渲染
     microphone.js      浏览器采集、设备列表和资源释放
+    system-audio.js    getDisplayMedia 系统音频采集、视频轨道释放和资源清理
     pcm-worklet.js     音频下混、PCM 编码和分块
     overlay.html       Overlay 页面
     overlay.js         Overlay 状态和事件渲染
@@ -176,6 +181,8 @@ packages/core/
 packages/providers/
   audio.cjs             PCM / WAV 输入和资源清理
   microphone.cjs        麦克风采集标识、IPC 数据校验及生命周期
+  system-audio.cjs      系统音频能力探测、display-media PCM 生命周期及固定错误码
+  screen-ocr.cjs        有界 PNG OCR provider，固定调用本地 Tesseract
   transcription.cjs     演示转写及 PCM 输入统计
   transcription-http.cjs 可选 loopback ASR WAV 适配器
   asr-supervisor.cjs  本地 ASR 子进程、健康检查、重试和退出清理
@@ -204,6 +211,8 @@ docs/
 - renderer 不接触 `require`、`ipcRenderer`、Node `process` 或任意命令执行接口。
 - WAV 文件路径只来自系统选择器；仅受信任桌面窗口的主 frame 可调用 IPC。
 - 麦克风仅允许 Dashboard 主 frame 在采集请求期间访问；摄像头、混合音视频、Overlay 和其他页面请求均拒绝。每次采集使用独立标识和有界 PCM 消息，不保存原始声音或设备 ID。
+- 系统音频仅允许 Dashboard 主 frame 在待采集状态下申请 `display-capture`；`getDisplayMedia` 的视频轨道立即停止，只有有界单声道 PCM 进入 ASR，不保存桌面图像、原始音频或采集标识。
+- 屏幕 OCR 只使用主显示器的内存 PNG，固定无 shell 调用本地 Tesseract，结果通过临时事件返回；PNG 不显示、不写入截图预览或历史，OCR 文本也不持久化。
 - 本地 API 只监听 `127.0.0.1`、`localhost` 或 `::1`。
 - 认证失败、token 过期和 API 不可用会分别处理；HTTP 401 不会被误判成离线。
 - Dashboard 和 Overlay 使用本地 CSP，事件内容通过 `textContent` 写入页面。
@@ -264,4 +273,4 @@ Windows 原版动态验证已按要求记为待办并跳过，不阻塞上述标
 
 ## 最终验证
 
-PCM/WAV 阶段证据见 [音频阶段验证报告](reports/audio-input-verification-2026-11-10.md)；麦克风实现、测试结果和未验证范围见 [麦克风阶段验证报告](reports/microphone-verification-2026-11-10.md)；可选 ASR 适配器见 [本地 ASR 验证报告](reports/local-asr-adapter-verification-2026-11-10.md)；ASR 生命周期见 [ASR supervisor 验证报告](reports/asr-supervisor-verification-2026-11-13.md)；离线更新见 [离线签名更新与回滚](docs/offline-updates.md)；会话备份见 [本地会话备份](docs/session-backup.md)；会话备份证据见 [备份验证报告](reports/session-backup-verification-2026-11-15.md)；SBOM 证据见 [SBOM 验证报告](reports/sbom-verification-2026-11-15.md)；bundle 验证见 [Linux bundle 报告](reports/linux-bundle-verification-2026-11-10.md)；系统音频探测见 [系统音频报告](reports/system-audio-capability-verification-2026-11-10.md)；物理设备检查见 [硬件验收报告](reports/physical-audio-hardware-verification-2026-11-10.md)；本次只读硬件预检见 [音频硬件预检报告](reports/audio-hardware-preflight-verification-2026-11-15.md)；真实语音模型见 [真实语音 ASR 验证报告](reports/asr-real-speech-verification-2026-11-15.md)；Windows/更新边界见 [边界验证报告](reports/windows-update-boundary-verification-2026-11-10.md)；faster-whisper 服务见 [ASR 服务报告](reports/faster-whisper-server-verification-2026-11-10.md)；运行时预检见 [ASR runtime 预检报告](reports/asr-runtime-preflight-verification-2026-11-13.md)；运行时依赖和模型下载预检见 [ASR 安装验证报告](reports/asr-runtime-install-verification-2026-11-15.md)；doctor 诊断和基准见 [ASR doctor 验证报告](reports/asr-doctor-verification-2026-11-15.md)；服务启动、健康检查、静音转写和清理见 [ASR runtime smoke 验证报告](reports/asr-runtime-smoke-verification-2026-11-15.md)。当前全量门禁为 157 项 Node 测试、39 项 Python ASR 测试、JavaScript 语法检查、Linux bundle 清单校验和 Debian 包解包校验；真实 Electron smoke 与生产 GPG 密钥仅在相应运行环境中验收。提交作者邮箱为 `19856850715@163.com`。
+PCM/WAV 阶段证据见 [音频阶段验证报告](reports/audio-input-verification-2026-11-10.md)；麦克风实现、测试结果和未验证范围见 [麦克风阶段验证报告](reports/microphone-verification-2026-11-10.md)；屏幕 OCR 与系统音频实现见 [屏幕 OCR 与系统音频验证报告](reports/screen-ocr-system-audio-verification-2026-11-15.md)；可选 ASR 适配器见 [本地 ASR 验证报告](reports/local-asr-adapter-verification-2026-11-10.md)；ASR 生命周期见 [ASR supervisor 验证报告](reports/asr-supervisor-verification-2026-11-13.md)；离线更新见 [离线签名更新与回滚](docs/offline-updates.md)；会话备份见 [本地会话备份](docs/session-backup.md)；会话备份证据见 [备份验证报告](reports/session-backup-verification-2026-11-15.md)；SBOM 证据见 [SBOM 验证报告](reports/sbom-verification-2026-11-15.md)；bundle 验证见 [Linux bundle 报告](reports/linux-bundle-verification-2026-11-10.md)；系统音频探测见 [系统音频报告](reports/system-audio-capability-verification-2026-11-10.md)；物理设备检查见 [硬件验收报告](reports/physical-audio-hardware-verification-2026-11-10.md)；本次只读硬件预检见 [音频硬件预检报告](reports/audio-hardware-preflight-verification-2026-11-15.md)；真实语音模型见 [真实语音 ASR 验证报告](reports/asr-real-speech-verification-2026-11-15.md)；Windows/更新边界见 [边界验证报告](reports/windows-update-boundary-verification-2026-11-10.md)；faster-whisper 服务见 [ASR 服务报告](reports/faster-whisper-server-verification-2026-11-10.md)；运行时预检见 [ASR runtime 预检报告](reports/asr-runtime-preflight-verification-2026-11-13.md)；运行时依赖和模型下载预检见 [ASR 安装验证报告](reports/asr-runtime-install-verification-2026-11-15.md)；doctor 诊断和基准见 [ASR doctor 验证报告](reports/asr-doctor-verification-2026-11-15.md)；服务启动、健康检查、静音转写和清理见 [ASR runtime smoke 验证报告](reports/asr-runtime-smoke-verification-2026-11-15.md)。当前全量门禁为 170 项 Node 测试、39 项 Python ASR 测试、65 个 JavaScript 文件语法检查、Linux bundle 清单校验和 Debian 包解包校验；真实 Electron smoke、Tesseract 可执行文件、物理系统音频和生产 GPG 密钥仅在相应运行环境中验收。提交作者邮箱为 `19856850715@163.com`。

@@ -7,6 +7,8 @@
 - [x] **1. 设备热插拔与选择器可靠性**：监听浏览器 `devicechange`、刷新设备名称、处理拔出中的设备并保持权限边界；合成设备和单元测试已完成。
 - [x] **2. 桌面打包与可复现发布检查**：加入 Electron runtime bundle、SHA-256 资源清单、启动检查和 Linux CI 构建产物验证；不发布原版安装器或 native 文件。
 - [x] **3. 系统音频能力探测**：探测当前平台是否提供回放采集，明确潜在路径、拒绝原因和 UI 状态；没有平台实现时保持安全的不可用结果。实际采集仍待平台验收。
+- [x] **3a. 系统音频采集接入**：Dashboard 选择系统音频后由 `getDisplayMedia` 建立音频流，立即停止视频轨道，复用 PCM Worklet/ASR，接入暂停、恢复、停止、错误和 `display-capture` 权限门控；真实平台回放样本仍待验收。
+- [x] **3b. 主屏屏幕 OCR**：快捷键 `CommandOrControl+Shift+O` 和 Dashboard 按钮捕获主屏全屏 PNG，在内存中调用固定 Tesseract argv；OCR 不显示截图、不写历史，Tesseract 安装和真实识别效果仍待本机验收。
 - [ ] **4. 具体本地 ASR 模型服务**：在用户授权并部署 Whisper/Vosk 等模型服务后，接入已完成的 loopback 协议并验证语言、延迟和错误恢复；`faster-whisper tiny` 已用一份授权中文 WAV 完成真实模型和 loopback 验证，但该样本 CER `0.5789`、WER `3.0`，识别质量和多样本稳定性仍未通过。
 - [ ] **5. 真实硬件验收**：在授权 Linux/Windows/macOS 设备验证权限、设备切换、拔插、暂停恢复和长时间运行。
 - [ ] **6. Windows 动态行为对照**：使用授权 Windows 虚拟机运行原版 preflight，记录 agent、采集和网络边界；当前环境跳过。
@@ -18,7 +20,7 @@
   - 入口：[Windows 动态验证 Runbook](dynamic-validation/windows-interviewcoder-runbook.md)
 
 - [ ] **物理麦克风与平台验收**：标准浏览器麦克风采集已实现；待在真实 Linux/Windows/macOS 设备验证系统权限、设备切换、拔插和长期运行。合成设备测试不代表硬件验证。
-- [ ] **系统音频与 Windows 原版采集对照**：系统回放采集和原版 agent 的协议兼容仍未实现；Windows 动态验证继续跳过。
+- [ ] **系统音频平台验收与 Windows 原版采集对照**：本地系统回放采集已接入；仍需在 Linux PipeWire、Windows display-media、macOS System Audio Recording 上验证真实样本，并继续跳过未授权的原版 agent 动态对照。
 - [ ] **具体本地 ASR 模型**：loopback HTTP 适配器、WAV 封装、超时和返回校验已完成；待选择、授权并在本机部署实际 Whisper/Vosk 等模型服务。仓库不下载或捆绑模型。
 - [x] **离线更新链**：`build:update`、`apply-update.cjs` 和 `docs/offline-updates.md` 已完成本地签名、完整性、原子切换、失败清理和回滚；网络下载、自动更新和原版 generic updater 仍未接入。
 - [x] **本地会话备份**：`session.export`/`session.import` 和 Dashboard 导入/导出已完成版本化 JSON、敏感字段清理、认证保护、主进程 schema 校验和冲突整批拒绝；跨版本迁移仍未开放。
@@ -70,6 +72,8 @@
 - [x] 可选 loopback ASR 适配器：仅允许 localhost/127.0.0.1/::1，默认关闭，失败不泄漏响应内容。
 - [x] 设备变更监听与选择器回退；Linux x64 runtime bundle、SHA-256 manifest 和 bundle smoke。
 - [x] 系统音频只读能力探测；不会申请屏幕/摄像头权限或启动音频流。
+- [x] 系统音频实际采集接入：display-media 音频 handshake、视频轨道即时释放、PCM 送入 ASR、Dashboard-only 权限和错误清理。
+- [x] 主屏屏幕 OCR：快捷键、全屏内存 PNG、Tesseract 有界 provider、结果状态和无历史持久化。
 - [x] 本地 ASR 协议参考 fixture：真实 loopback HTTP、WAV 校验和固定响应；不冒充实际语音识别模型。
 - [x] 可选 `faster-whisper` loopback 服务骨架、模型缺失 503、WAV 校验和 CPU/int8 配置；实际模型部署和准确率验收仍未完成。
 - [x] ASR runtime 预检：模型和依赖缺失时返回明确的未验证状态，成功加载本地模型才返回通过；实际语音质量验收仍未完成。

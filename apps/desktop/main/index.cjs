@@ -362,8 +362,8 @@ function createAppDependencies(options = {}) {
     broadcast({ type: 'screen-ocr.started', display: 'primary', timestamp: clock() });
     try {
       const primary = screen?.getPrimaryDisplay?.() || capture.getDisplays()?.[0];
-      const displayId = primary?.id === undefined ? primary?.id : String(primary.id);
-      if (displayId === undefined || displayId === null) {
+      const displayId = primary?.id === undefined || primary?.id === null ? null : String(primary.id);
+      if (displayId === null) {
         const result = { ok: false, error: { code: 'DISPLAY_NOT_FOUND', message: screenOcrMessages.DISPLAY_NOT_FOUND } };
         broadcast({ type: 'screen-ocr.failed', ...result.error, timestamp: clock() });
         return result;
