@@ -57,6 +57,17 @@ async function main() {
     await page.locator('#password').fill('local-dev-password');
     await page.locator('#login-form button[type=submit]').click();
     await page.waitForFunction(() => document.getElementById('auth-badge').textContent.startsWith('Signed in:'));
+    const screenshotPreviewBeforeOcr = await page.locator('#screenshot-preview').isHidden();
+    const screenshotSourceBeforeOcr = await page.locator('#screenshot-image').getAttribute('src');
+    await page.locator('#screen-ocr').click();
+    await page.waitForFunction(() => {
+      const result = document.getElementById('screen-ocr-result');
+      const status = document.getElementById('screen-ocr-status')?.textContent || '';
+      return !result.hidden || /unavailable|timed out|failed/i.test(status);
+    }, null, { timeout: 5000 });
+    assert.equal(await page.locator('#screenshot-preview').isHidden(), screenshotPreviewBeforeOcr, 'OCR must not show screenshot preview');
+    assert.equal(await page.locator('#screenshot-image').getAttribute('src'), screenshotSourceBeforeOcr, 'OCR must not populate screenshot preview');
+    assert.ok((await page.locator('#screen-ocr-status').textContent()).trim().length > 0, 'OCR must expose a status');
     const systemAudio = await page.evaluate(() => window.localRebuild.invoke('audio.get-system-capabilities'));
     assert.equal(systemAudio.captureStarted, false, 'system audio capability probe must not start capture');
     await page.locator('#system-audio-check').click();
@@ -156,7 +167,7 @@ async function main() {
     assert.deepEqual(errors, []);
     const prefs = await desktop.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().map((w) => w.webContents.getLastWebPreferences()));
     assert.ok(prefs.every((p) => p.contextIsolation && p.sandbox && !p.nodeIntegration));
-    console.log('Electron smoke PASS: real preload/login/WAV 64000 bytes/history; synthetic microphone PCM/permission denials/pause release/resume reacquire/stop/reload/signout.');
+    console.log('Electron smoke PASS: real preload/login/WAV 64000 bytes/history; screen OCR success/unavailable path without screenshot preview mutation; synthetic microphone PCM/permission denials/pause release/resume reacquire/stop/reload/signout.');
   } finally {
     if (desktop) await desktop.close();
     fs.rmSync(root, { recursive: true, force: true });
