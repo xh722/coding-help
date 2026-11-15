@@ -15,6 +15,7 @@ function fixtureBundle() {
     'electron': '#!/bin/sh\n',
     'run.sh': '#!/bin/sh\nexec "$PWD/electron" "$PWD/resources/app"\n',
     'resources/app/package.json': '{"name":"interviewcoder-local-rebuild","version":"0.1.0"}\n',
+    'sbom.cdx.json': JSON.stringify({ bomFormat: 'CycloneDX', specVersion: '1.5', metadata: { component: { type: 'application', name: 'interviewcoder-local-rebuild', version: '0.1.0' }, properties: [{ name: 'sourceRevision', value: 'a'.repeat(40) }] }, components: [] }) + '\n',
   };
   for (const [relative, contents] of Object.entries(files)) {
     const full = path.join(root, relative);

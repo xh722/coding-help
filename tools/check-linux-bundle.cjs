@@ -14,6 +14,11 @@ const expectedRevision = process.env.CODING_HELP_EXPECTED_REVISION;
 if (expectedRevision && manifest.sourceRevision !== expectedRevision) throw new Error(`Bundle source revision mismatch: expected ${expectedRevision}, got ${manifest.sourceRevision || 'missing'}.`);
 if (!fs.existsSync(path.join(root, 'electron')) || !fs.existsSync(path.join(root, 'resources', 'app', 'package.json'))) throw new Error('Bundle runtime or app package is missing.');
 if ((fs.statSync(path.join(root, 'run.sh')).mode & 0o111) === 0) throw new Error('Bundle launcher is not executable.');
+const packageJson = JSON.parse(fs.readFileSync(path.join(root, 'resources', 'app', 'package.json'), 'utf8'));
+const sbomPath = path.join(root, 'sbom.cdx.json');
+if (!fs.existsSync(sbomPath)) throw new Error('Bundle SBOM is missing.');
+const sbom = JSON.parse(fs.readFileSync(sbomPath, 'utf8'));
+if (sbom.bomFormat !== 'CycloneDX' || sbom.specVersion !== '1.5' || sbom.metadata?.component?.name !== packageJson.name || sbom.metadata?.component?.version !== packageJson.version || sbom.metadata?.properties?.find((property) => property.name === 'sourceRevision')?.value !== manifest.sourceRevision) throw new Error('Bundle SBOM is invalid or does not match the bundle.');
 const actual = new Set(walk(root).map((file) => path.relative(root, file).split(path.sep).join('/')).filter((file) => file !== 'bundle-manifest.json'));
 const listed = new Set();
 for (const file of manifest.files) {

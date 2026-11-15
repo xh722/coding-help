@@ -13,7 +13,8 @@ function writeFixture() {
   const files = {
     'electron': '#!/bin/sh\n',
     'run.sh': '#!/bin/sh\n',
-    'resources/app/package.json': '{"name":"fixture"}\n',
+    'resources/app/package.json': '{"name":"interviewcoder-local-rebuild","version":"0.1.0"}\n',
+    'sbom.cdx.json': JSON.stringify({ bomFormat: 'CycloneDX', specVersion: '1.5', metadata: { component: { type: 'application', name: 'interviewcoder-local-rebuild', version: '0.1.0' }, properties: [{ name: 'sourceRevision', value: 'a'.repeat(40) }] }, components: [] }) + '\n',
   };
   for (const [relative, contents] of Object.entries(files)) {
     const full = path.join(root, relative);
@@ -49,4 +50,14 @@ test('bundle checker enforces the expected source revision when CI supplies one'
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }
+});
+
+test('bundle checker rejects a missing SBOM', () => {
+  const root = writeFixture();
+  try {
+    fs.unlinkSync(path.join(root, 'sbom.cdx.json'));
+    const result = runChecker(root, 'a'.repeat(40));
+    assert.notEqual(result.status, 0);
+    assert.match(`${result.stdout}\n${result.stderr}`, /SBOM/i);
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });

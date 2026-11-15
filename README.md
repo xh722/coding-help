@@ -29,6 +29,7 @@
 | Linux x64 桌面 bundle / Debian 包 | 已完成，签名待做 | 可复现复制 Electron runtime + 本地应用，生成 SHA-256 manifest，并可生成 Debian x64 包；不包含原版安装器或 native 文件 |
 | 离线签名更新与回滚 | 已完成本地链路，生产密钥待配 | 本地 GPG detached signature、归档哈希、tar 路径检查、原子 `current/previous` 指针和失败清理；不连接原版更新服务器 |
 | 本地会话备份导出 | 已完成 | Dashboard 导出全部会话的版本化 JSON；递归清理认证凭据，不上传网络；自动导入尚未开放 |
+| SBOM 与发布清单 | 已完成本地生成，生产签名待配 | `npm run sbom` 生成 CycloneDX 1.5，Linux bundle 和 Debian checker 会验证 SBOM；代码签名仍需发布密钥 |
 | Windows 动态行为对照 | 待做 | 需要授权的 Windows 虚拟机和隔离网络环境 |
 
 因此，当前版本适合本地运行、理解架构和继续替换 provider，不能声称已经完全复刻原软件。
@@ -53,6 +54,14 @@ npm run check:linux-bundle
 ```
 
 bundle 只包含当前仓库的 `apps/`、`packages/`、`services/` 和已安装 Electron runtime。`bundle-manifest.json` 记录每个文件的大小和 SHA-256；`check:linux-bundle` 会校验清单、启动器权限和原版安装器/native 文件排除。CI 传入 `CODING_HELP_EXPECTED_REVISION` 时还会校验 bundle 来源提交 SHA。当前没有签名、自动更新或 Windows/macOS 安装包。
+
+发布审计还可以生成本地 CycloneDX SBOM：
+
+```bash
+npm run sbom
+```
+
+`npm run build:linux` 会把 SBOM 放入 bundle 根目录；`check:linux-bundle` 和 `check:deb` 会验证产品、版本和来源提交。SBOM 不等同于代码签名，生产签名仍需受控密钥。
 
 在 Debian/Ubuntu x64 环境可以生成可安装包：
 
@@ -110,6 +119,7 @@ npm test
 
 - 版本化 JSON 存储和原子写入。
 - 全量会话备份 schema、敏感字段清理、认证保护和主进程边界。
+- CycloneDX SBOM 生成、依赖关系、bundle 来源提交和发布清单一致性。
 - 登录、刷新、退出、过期 token 和错误凭据。
 - IPC 命令白名单、payload 校验、来源/窗口校验和错误清洗。
 - session 状态机、事件时间线、嵌套 payload 深拷贝和幂等停止。
@@ -179,6 +189,7 @@ tests/
 
 docs/
   local-rebuild-usage.md                       快速使用说明
+  sbom.md                                      SBOM 生成与发布校验
   superpowers/specs/...-design.md              完整设计和安全边界
   superpowers/plans/2026-11-10-audio-capture-provider.md 音频实施计划
 ```
@@ -235,7 +246,7 @@ Electron 启动时会尝试启动本地 API。如果 API 因端口、权限或�
 
 ## 下一阶段
 
-下一步优先接入具体的本地 ASR 模型服务，并完成物理麦克风与桌面打包验收。当前仓库不捆绑模型；未配置 loopback 服务时仍不会识别语音。
+下一步优先接入具体的本地 ASR 模型服务，并完成物理麦克风与桌面打包验收。当前仓库不捆绑模型；未配置 loopback 服务时仍不会识别语音。SBOM 已在本机完成，生产代码签名仍待发布环境密钥。
 
 Windows 原版动态验证已按要求记为待办并跳过，不阻塞上述标准能力开发。后续具备授权虚拟机时再进行：
 
@@ -252,4 +263,4 @@ Windows 原版动态验证已按要求记为待办并跳过，不阻塞上述标
 
 ## 最终验证
 
-PCM/WAV 阶段证据见 [音频阶段验证报告](reports/audio-input-verification-2026-11-10.md)；麦克风实现、测试结果和未验证范围见 [麦克风阶段验证报告](reports/microphone-verification-2026-11-10.md)；可选 ASR 适配器见 [本地 ASR 验证报告](reports/local-asr-adapter-verification-2026-11-10.md)；ASR 生命周期见 [ASR supervisor 验证报告](reports/asr-supervisor-verification-2026-11-13.md)；离线更新见 [离线签名更新与回滚](docs/offline-updates.md)；会话备份见 [本地会话备份](docs/session-backup.md)；会话备份证据见 [备份验证报告](reports/session-backup-verification-2026-11-15.md)；bundle 验证见 [Linux bundle 报告](reports/linux-bundle-verification-2026-11-10.md)；系统音频探测见 [系统音频报告](reports/system-audio-capability-verification-2026-11-10.md)；物理设备检查见 [硬件验收报告](reports/physical-audio-hardware-verification-2026-11-10.md)；Windows/更新边界见 [边界验证报告](reports/windows-update-boundary-verification-2026-11-10.md)；faster-whisper 服务见 [ASR 服务报告](reports/faster-whisper-server-verification-2026-11-10.md)；运行时预检见 [ASR runtime 预检报告](reports/asr-runtime-preflight-verification-2026-11-13.md)。当前全量门禁为 152 项 Node 测试、19 项 Python ASR 测试、JavaScript 语法检查、Linux bundle 清单校验和 Debian 包解包校验；真实 Electron smoke 与生产 GPG 密钥仅在相应运行环境中验收。提交作者邮箱为 `19856850715@163.com`。
+PCM/WAV 阶段证据见 [音频阶段验证报告](reports/audio-input-verification-2026-11-10.md)；麦克风实现、测试结果和未验证范围见 [麦克风阶段验证报告](reports/microphone-verification-2026-11-10.md)；可选 ASR 适配器见 [本地 ASR 验证报告](reports/local-asr-adapter-verification-2026-11-10.md)；ASR 生命周期见 [ASR supervisor 验证报告](reports/asr-supervisor-verification-2026-11-13.md)；离线更新见 [离线签名更新与回滚](docs/offline-updates.md)；会话备份见 [本地会话备份](docs/session-backup.md)；会话备份证据见 [备份验证报告](reports/session-backup-verification-2026-11-15.md)；SBOM 证据见 [SBOM 验证报告](reports/sbom-verification-2026-11-15.md)；bundle 验证见 [Linux bundle 报告](reports/linux-bundle-verification-2026-11-10.md)；系统音频探测见 [系统音频报告](reports/system-audio-capability-verification-2026-11-10.md)；物理设备检查见 [硬件验收报告](reports/physical-audio-hardware-verification-2026-11-10.md)；Windows/更新边界见 [边界验证报告](reports/windows-update-boundary-verification-2026-11-10.md)；faster-whisper 服务见 [ASR 服务报告](reports/faster-whisper-server-verification-2026-11-10.md)；运行时预检见 [ASR runtime 预检报告](reports/asr-runtime-preflight-verification-2026-11-13.md)。当前全量门禁为 155 项 Node 测试、19 项 Python ASR 测试、JavaScript 语法检查、Linux bundle 清单校验和 Debian 包解包校验；真实 Electron smoke 与生产 GPG 密钥仅在相应运行环境中验收。提交作者邮箱为 `19856850715@163.com`。

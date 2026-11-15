@@ -4,6 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const { execFileSync } = require('node:child_process');
+const { createSbom } = require('./generate-sbom.cjs');
 
 const repo = path.resolve(__dirname, '..');
 const defaultOutput = path.join(repo, 'dist', 'interviewcoder-local-rebuild-linux-x64');
@@ -47,6 +48,7 @@ function build(output = process.env.CODING_HELP_BUNDLE_DIR || defaultOutput) {
   fs.writeFileSync(path.join(output, 'run.sh'), launcher, { mode: 0o755 });
   let sourceRevision = 'working-tree';
   try { sourceRevision = execFileSync('git', ['-C', repo, 'rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(); } catch {}
+  fs.writeFileSync(path.join(output, 'sbom.cdx.json'), `${JSON.stringify(createSbom({ packageJson, packageLock: JSON.parse(fs.readFileSync(path.join(repo, 'package-lock.json'), 'utf8')), sourceRevision }), null, 2)}\n`);
   const manifest = makeManifest(output, sourceRevision);
   fs.writeFileSync(path.join(output, 'bundle-manifest.json'), JSON.stringify(manifest, null, 2) + '\n');
   return { output, manifest, appRoot };
