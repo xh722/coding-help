@@ -31,6 +31,8 @@ jobs:
         run: npm run test:asr-runtime
       - name: Check ASR runtime doctor contracts
         run: npm run test:asr-doctor
+      - name: Check ASR runtime smoke contracts
+        run: npm run test:asr-smoke
       - name: Check syntax
         run: npm run check
       - name: Check whitespace
