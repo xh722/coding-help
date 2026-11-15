@@ -151,7 +151,7 @@ npm test
 - 系统音频能力探测、平台提示、无源/错误结果和 Dashboard-only IPC 限制。
 - loopback ASR 参考 fixture 的真实 HTTP/WAV 验证；fixture 固定返回文本，不宣称语音识别。
 - 可选 `faster-whisper` loopback 服务骨架；模型和依赖由用户自行安装，缺失时返回 503，不伪造识别结果。`asr:preflight` 默认只读本地模型，传 `--allow-model-download` 才会尝试下载命名模型。
-- `asr:doctor` 本地运行时诊断和 WAV 基准：输出依赖版本、模型加载/推理耗时、重复推理的平均/最小/P95、格式、语言、文本长度、CPU 用户/系统耗时和峰值 RSS 内存；提供参考文本时还会计算脱敏的 CER/WER，不写出原始转写内容；`asr:smoke` 可启动本地 faster-whisper 服务并验证 `/healthz`、`/transcribe` 和退出清理；`audio:preflight` 只读检查 ALSA/PulseAudio 和显示环境，不打开录音流。已用一份授权中文 WAV 完成真实模型和 loopback 验证，但样本 CER/WER 偏高，不能宣称识别质量通过。
+- `asr:doctor` 本地运行时诊断和 WAV 基准：输出依赖版本、模型加载/推理耗时、重复推理的平均/最小/P95、格式、语言、文本长度、CPU 用户/系统耗时和峰值 RSS 内存；提供参考文本时还会计算脱敏的 CER/WER，不写出原始转写内容；`asr:smoke` 可启动本地 faster-whisper 服务并验证 `/healthz`、`/transcribe` 和退出清理；`audio:preflight` 只读检查 ALSA/PulseAudio 和显示环境，不打开录音流。已用一份带逐字参考文本的授权中文 WAV 完成真实模型和 loopback 验证，但样本 CER/WER 偏高，不能宣称识别质量通过。
 - 屏幕 OCR 和系统音频的 provider、IPC、权限门控、全屏主屏选择、视频轨道释放、PCM 队列和静态错误码有独立自动化测试；`npm run ocr:preflight -- --json` 只读检查 Tesseract 与 `chi_sim`/`eng` 语言包，不读取屏幕或联网；本机实际运行仍需要 Tesseract、桌面服务、PipeWire 和对应系统权限。
 - loopback ASR 地址校验、PCM WAV 封装、返回文本校验、超时、停止取消、请求上限和错误脱敏。
 
@@ -268,7 +268,7 @@ Electron 启动时会尝试启动本地 API。如果 API 因端口、权限或�
 
 ## 下一阶段
 
-本机已用隔离环境加载 `faster-whisper tiny`，并用一份授权中文 WAV 完成真实推理和 loopback `/healthz`、`/transcribe` 验证；该样本 CER `0.5789`、WER `3.0`，识别质量仍未通过，需要逐字对应的参考文本和更多清晰样本。当前仓库不捆绑模型；未配置 loopback 服务时仍不会识别语音。SBOM 已在本机完成，生产代码签名仍待发布环境密钥。
+本机已用隔离环境加载 `faster-whisper tiny`，并用一份带逐字参考文本的授权中文 WAV 完成真实推理和 loopback `/healthz`、`/transcribe` 验证；该样本 CER `0.5676`、WER `3.0`，识别质量仍未通过，需要更多清晰样本或更大模型。当前仓库不捆绑模型；未配置 loopback 服务时仍不会识别语音。SBOM 已在本机完成，生产代码签名仍待发布环境密钥。
 
 Windows 原版动态验证已按要求记为待办并跳过，不阻塞上述标准能力开发。后续具备授权虚拟机时再进行：
 
