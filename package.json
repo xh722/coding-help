@@ -15,6 +15,7 @@
     "sbom": "node tools/generate-sbom.cjs",
     "build:update": "node tools/build-update.cjs",
     "asr:fixture": "node tools/local-asr-fixture.cjs",
+    "test:screen-ocr": "node --test tests/screen-ocr.test.cjs",
     "test:asr-server": "python3 -m unittest tests/local_asr_server_test.py",
     "test:asr-runtime": "python3 -m unittest tests/asr_runtime_preflight_test.py",
     "test:asr-doctor": "python3 -m unittest tests/asr_runtime_doctor_test.py",
