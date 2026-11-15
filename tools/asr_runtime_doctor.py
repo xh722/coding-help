@@ -8,6 +8,7 @@ import importlib
 import importlib.util
 import io
 import json
+import math
 import os
 import sys
 import time
@@ -65,6 +66,12 @@ def _process_metrics(
     }
 
 
+def _percentile_ms(values: list[float], percentile: float) -> float:
+    ordered = sorted(values)
+    index = max(0, min(len(ordered) - 1, math.ceil(percentile / 100 * len(ordered)) - 1))
+    return round(ordered[index], 2)
+
+
 def run_doctor(
     model_name: str | None,
     *,
@@ -77,6 +84,7 @@ def run_doctor(
     allow_download: bool = False,
     clock: Callable[[], float] = time.perf_counter,
     usage_reader: Callable[[], dict[str, float] | None] | None = None,
+    repeat: int = 1,
 ) -> dict[str, Any]:
     result: dict[str, Any] = {"ok": False, "provider": "faster-whisper", "versions": {}}
 
@@ -99,6 +107,9 @@ def run_doctor(
         return finish(result)
     if not isinstance(cpu_threads, int) or cpu_threads < 1:
         result["error"] = "cpu thread count is invalid"
+        return finish(result)
+    if not isinstance(repeat, int) or repeat < 1:
+        result["error"] = "audio repeat count is invalid"
         return finish(result)
 
     model_path = Path(model_name).expanduser()
@@ -144,18 +155,29 @@ def run_doctor(
         except Exception:
             result["error"] = "audio file could not be read or is not valid PCM WAV"
             return finish(result)
-        started = clock()
-        try:
-            segments, info = model.transcribe(io.BytesIO(body), beam_size=5, vad_filter=True)
-            transcript_chars = sum(len(str(getattr(segment, "text", "")).strip()) for segment in segments)
-        except Exception:
-            result["error"] = "faster-whisper audio probe failed"
-            return finish(result)
+        inference_times: list[float] = []
+        transcript_chars = 0
+        language = None
+        for _ in range(repeat):
+            started = clock()
+            try:
+                segments, info = model.transcribe(io.BytesIO(body), beam_size=5, vad_filter=True)
+                current_transcript_chars = sum(len(str(getattr(segment, "text", "")).strip()) for segment in segments)
+            except Exception:
+                result["error"] = "faster-whisper audio probe failed"
+                return finish(result)
+            inference_times.append(_elapsed_ms(clock, started))
+            if len(inference_times) == 1:
+                transcript_chars = current_transcript_chars
+                language = getattr(info, "language", None)
         result["audio"] = {
             "format": audio_format,
             "duration_ms": round(audio_format["frames"] * 1000 / audio_format["sampleRate"], 2),
-            "inference_ms": _elapsed_ms(clock, started),
-            "language": getattr(info, "language", None),
+            "inference_ms": round(sum(inference_times) / len(inference_times), 2),
+            "inference_ms_min": min(inference_times),
+            "inference_ms_p95": _percentile_ms(inference_times, 95),
+            "runs": repeat,
+            "language": language,
             "transcript_chars": transcript_chars,
         }
     result["ok"] = True
@@ -169,6 +191,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--device", default=os.environ.get("WHISPER_DEVICE", "cpu"))
     parser.add_argument("--compute-type", default=os.environ.get("WHISPER_COMPUTE_TYPE", "int8"))
     parser.add_argument("--cpu-threads", type=int, default=4)
+    parser.add_argument("--repeat", type=int, default=1, help="repeat the optional audio probe for stable timing statistics")
     parser.add_argument("--allow-model-download", action="store_true", help="allow a named model to be downloaded")
     parser.add_argument("--json", action="store_true", dest="json_output", help="print a machine-readable JSON report")
     args = parser.parse_args(argv)
@@ -179,6 +202,7 @@ def main(argv: list[str] | None = None) -> int:
         compute_type=args.compute_type,
         cpu_threads=args.cpu_threads,
         allow_download=args.allow_model_download,
+        repeat=args.repeat,
     )
     if args.json_output:
         print(json.dumps(result, ensure_ascii=False, sort_keys=True))
@@ -187,7 +211,11 @@ def main(argv: list[str] | None = None) -> int:
         audio = result.get("audio")
         message = f"ASR doctor verified: model load {model.get('load_ms', 0):.2f} ms"
         if audio:
-            message += f", inference {audio['inference_ms']:.2f} ms, transcript chars {audio['transcript_chars']}"
+            message += (
+                f", inference avg/min/p95 {audio['inference_ms']:.2f}/{audio['inference_ms_min']:.2f}/"
+                f"{audio['inference_ms_p95']:.2f} ms over {audio['runs']} run(s),"
+                f" transcript chars {audio['transcript_chars']}"
+            )
         process = result.get("process", {})
         if process.get("available"):
             message += (

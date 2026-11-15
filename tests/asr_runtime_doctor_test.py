@@ -89,6 +89,40 @@ class AsrRuntimeDoctorTests(unittest.TestCase):
         self.assertEqual(result["process"]["cpu_system_ms"], 250.0)
         self.assertEqual(result["process"]["max_rss_mb"], 4.0)
 
+    def test_audio_probe_supports_repeat_benchmark_statistics(self):
+        class Segment:
+            text = "repeatable"
+
+        class Info:
+            language = "en"
+
+        class FakeModel:
+            calls = 0
+
+            def __init__(self, _name, **_kwargs):
+                pass
+
+            def transcribe(self, _audio, **_kwargs):
+                self.calls += 1
+                return iter([Segment()]), Info()
+
+        module = types.SimpleNamespace(__version__="fake-1", WhisperModel=FakeModel)
+        with tempfile.TemporaryDirectory() as directory:
+            audio_path = Path(directory) / "sample.wav"
+            audio_path.write_bytes(silence_wav())
+            result = doctor.run_doctor(directory, audio_path=str(audio_path), repeat=3, module=module, importer=None)
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["audio"]["runs"], 3)
+        self.assertEqual(result["audio"]["transcript_chars"], len("repeatable"))
+        self.assertGreaterEqual(result["audio"]["inference_ms"], 0)
+        self.assertGreaterEqual(result["audio"]["inference_ms_p95"], result["audio"]["inference_ms_min"])
+
+    def test_repeat_count_must_be_positive(self):
+        with tempfile.TemporaryDirectory() as directory:
+            result = doctor.run_doctor(directory, repeat=0, module=types.SimpleNamespace(), importer=None)
+        self.assertFalse(result["ok"])
+        self.assertEqual(result["error"], "audio repeat count is invalid")
+
 
 if __name__ == "__main__":
     unittest.main()

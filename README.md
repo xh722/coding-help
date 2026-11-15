@@ -136,7 +136,7 @@ npm test
 - 系统音频能力探测、平台提示、无源/错误结果和 Dashboard-only IPC 限制。
 - loopback ASR 参考 fixture 的真实 HTTP/WAV 验证；fixture 固定返回文本，不宣称语音识别。
 - 可选 `faster-whisper` loopback 服务骨架；模型和依赖由用户自行安装，缺失时返回 503，不伪造识别结果。`asr:preflight` 默认只读本地模型，传 `--allow-model-download` 才会尝试下载命名模型。
-- `asr:doctor` 本地运行时诊断和 WAV 基准：输出依赖版本、模型加载/推理耗时、格式、语言、文本长度、CPU 用户/系统耗时和峰值 RSS 内存，不写出原始转写内容。
+- `asr:doctor` 本地运行时诊断和 WAV 基准：输出依赖版本、模型加载/推理耗时、重复推理的平均/最小/P95、格式、语言、文本长度、CPU 用户/系统耗时和峰值 RSS 内存，不写出原始转写内容。
 - loopback ASR 地址校验、PCM WAV 封装、返回文本校验、超时、停止取消、请求上限和错误脱敏。
 
 `npm run smoke` 使用真实 Electron 运行桌面流程（需要显示服务；无显示器的 Linux 使用 `xvfb-run -a npm run smoke`）。文件选择器返回合成 WAV；麦克风由 Chromium 合成媒体设备提供，经过真实 AudioWorklet、Preload 和主进程验证。覆盖采集、暂停释放、恢复重连、停止、刷新、退出登录，以及摄像头/Overlay/非采集状态拒绝。不录制物理麦克风，不跳过权限处理。
