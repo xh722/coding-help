@@ -4,7 +4,7 @@
 
 屏幕 OCR 和系统音频采集已完成本地代码接入、IPC 契约、权限边界和资源生命周期验证。屏幕 OCR 使用主显示器全屏 PNG，快捷键为 `CommandOrControl+Shift+O`；PNG 只在内存中传给本地 Tesseract，不进入截图预览或会话历史。系统音频使用 `getDisplayMedia({ video: true, audio: ... })`，拿到流后立即停止视频轨道，只把单声道 PCM 送入已有转写管线。
 
-本报告不把平台硬件能力标为已验收：当前 Linux 环境没有 `tesseract` 可执行文件、没有 `/dev/snd`，也没有 `DISPLAY`，因此没有真实 OCR 进程运行、物理回放采样或 Xvfb Electron smoke 证据。
+本报告不把平台硬件能力标为已验收：当前 Linux 环境已经安装并验证 `tesseract` 与 `chi_sim`/`eng` 语言包，但没有 `/dev/snd`，也没有 `DISPLAY`，因此真实屏幕捕获、物理回放采样和 Xvfb Electron smoke 仍无证据。
 
 ## 实现范围
 
@@ -29,7 +29,7 @@ npm run check
 node --check tools/electron-smoke.cjs
 ```
 
-结果：OCR provider 5 项通过；OCR 本机预检 4 项通过；系统音频 renderer/provider 6 项通过；桌面音频与权限集成 8 项通过；全量 Node 测试 174 项通过；Python ASR/硬件预检合计 39 项通过；JavaScript 语法检查 67 个文件和 Electron smoke 脚本语法检查通过。`tools/electron-smoke.cjs` 已加入 OCR 可用/不可用两条路径，以及 OCR 不更新截图预览的断言。
+结果：OCR provider 5 项通过；OCR 本机预检 4 项通过；系统音频 renderer/provider 6 项通过；桌面音频与权限集成 8 项通过；全量 Node 测试 174 项通过；Python ASR/硬件预检合计 39 项通过；JavaScript 语法检查 67 个文件和 Electron smoke 脚本语法检查通过。另用临时合成 PNG 运行了真实 `tesseract` 进程，返回 `Local OCR 验收样本`（`chi_sim+eng`，14 字符）；临时图片未写入仓库。`tools/electron-smoke.cjs` 已加入 OCR 可用/不可用两条路径，以及 OCR 不更新截图预览的断言。
 
 覆盖的关键断言：
 
@@ -45,13 +45,14 @@ node --check tools/electron-smoke.cjs
 检查结果：
 
 ```text
-tesseract: not installed
+tesseract: /usr/bin/tesseract 4.1.1
+/usr/bin/tesseract --list-langs: chi_sim, eng, osd
 /dev/snd: absent
 DISPLAY: unset
 ffmpeg: /usr/bin/ffmpeg
 ```
 
-本轮执行 `npm run ocr:preflight -- --json` 返回退出码 2：`{"ok":false,"code":"OCR_UNAVAILABLE","languages":[],"missing":["chi_sim","eng"]}`。本轮执行 `npm run smoke` 返回退出码 2（`NOT VERIFIED`），因为该容器没有 `DISPLAY`，且没有安装 `xvfb-run`；这不是 smoke 通过，也不是应用失败。具备桌面或 Xvfb 后，smoke 会实际点击 OCR 按钮，并验证成功结果或不可用状态以及截图预览保持不变。
+本轮执行 `npm run ocr:preflight -- --json` 返回退出码 0：`{"ok":true,"code":"OCR_READY","languages":["chi_sim","eng","osd"],"missing":[]}`。本轮执行 `npm run smoke` 仍返回退出码 2（`NOT VERIFIED`），因为该容器没有 `DISPLAY`，且没有安装 `xvfb-run`；这不是 smoke 通过，也不是应用失败。具备桌面或 Xvfb 后，smoke 会实际点击 OCR 按钮，并验证成功结果或不可用状态以及截图预览保持不变。
 
 安装 OCR 依赖后可运行：
 
