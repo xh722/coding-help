@@ -123,6 +123,36 @@ class AsrRuntimeDoctorTests(unittest.TestCase):
         self.assertFalse(result["ok"])
         self.assertEqual(result["error"], "audio repeat count is invalid")
 
+    def test_expected_transcript_reports_quality_without_raw_text(self):
+        class Segment:
+            text = "hello world"
+
+        class Info:
+            language = "en"
+
+        class FakeModel:
+            def __init__(self, _name, **_kwargs):
+                pass
+
+            def transcribe(self, _audio, **_kwargs):
+                return iter([Segment()]), Info()
+
+        module = types.SimpleNamespace(__version__="fake-1", WhisperModel=FakeModel)
+        with tempfile.TemporaryDirectory() as directory:
+            audio_path = Path(directory) / "sample.wav"
+            audio_path.write_bytes(silence_wav())
+            result = doctor.run_doctor(
+                directory,
+                audio_path=str(audio_path),
+                expected_text="hello world",
+                module=module,
+                importer=None,
+            )
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["audio"]["quality"]["cer"], 0.0)
+        self.assertEqual(result["audio"]["quality"]["wer"], 0.0)
+        self.assertNotIn("hello world", str(result))
+
 
 if __name__ == "__main__":
     unittest.main()

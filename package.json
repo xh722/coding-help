@@ -18,6 +18,7 @@
     "test:asr-server": "python3 -m unittest tests/local_asr_server_test.py",
     "test:asr-runtime": "python3 -m unittest tests/asr_runtime_preflight_test.py",
     "test:asr-doctor": "python3 -m unittest tests/asr_runtime_doctor_test.py",
+    "test:asr-quality": "python3 -m unittest tests/asr_quality_test.py",
     "test:asr-smoke": "python3 -m unittest tests/asr_runtime_smoke_test.py",
     "asr:preflight": "python3 tools/asr_runtime_preflight.py",
     "asr:doctor": "python3 tools/asr_runtime_doctor.py",

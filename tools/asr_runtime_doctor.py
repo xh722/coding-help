@@ -15,6 +15,8 @@ import time
 from pathlib import Path
 from typing import Any, Callable
 
+from asr_quality import score_transcript
+
 try:
     import resource
 except ImportError:  # pragma: no cover - unavailable on Windows
@@ -85,6 +87,7 @@ def run_doctor(
     clock: Callable[[], float] = time.perf_counter,
     usage_reader: Callable[[], dict[str, float] | None] | None = None,
     repeat: int = 1,
+    expected_text: str | None = None,
 ) -> dict[str, Any]:
     result: dict[str, Any] = {"ok": False, "provider": "faster-whisper", "versions": {}}
 
@@ -110,6 +113,9 @@ def run_doctor(
         return finish(result)
     if not isinstance(repeat, int) or repeat < 1:
         result["error"] = "audio repeat count is invalid"
+        return finish(result)
+    if expected_text is not None and not audio_path:
+        result["error"] = "expected transcript requires audio"
         return finish(result)
 
     model_path = Path(model_name).expanduser()
@@ -158,11 +164,18 @@ def run_doctor(
         inference_times: list[float] = []
         transcript_chars = 0
         language = None
+        quality = None
         for _ in range(repeat):
             started = clock()
             try:
                 segments, info = model.transcribe(io.BytesIO(body), beam_size=5, vad_filter=True)
-                current_transcript_chars = sum(len(str(getattr(segment, "text", "")).strip()) for segment in segments)
+                parts = []
+                current_transcript_chars = 0
+                for segment in segments:
+                    part = str(getattr(segment, "text", "")).strip()
+                    if part:
+                        parts.append(part)
+                        current_transcript_chars += len(part)
             except Exception:
                 result["error"] = "faster-whisper audio probe failed"
                 return finish(result)
@@ -170,7 +183,9 @@ def run_doctor(
             if len(inference_times) == 1:
                 transcript_chars = current_transcript_chars
                 language = getattr(info, "language", None)
-        result["audio"] = {
+                if expected_text is not None:
+                    quality = score_transcript(expected_text, " ".join(parts))
+        audio_result: dict[str, Any] = {
             "format": audio_format,
             "duration_ms": round(audio_format["frames"] * 1000 / audio_format["sampleRate"], 2),
             "inference_ms": round(sum(inference_times) / len(inference_times), 2),
@@ -180,6 +195,9 @@ def run_doctor(
             "language": language,
             "transcript_chars": transcript_chars,
         }
+        if quality is not None:
+            audio_result["quality"] = quality
+        result["audio"] = audio_result
     result["ok"] = True
     return finish(result)
 
@@ -192,18 +210,40 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--compute-type", default=os.environ.get("WHISPER_COMPUTE_TYPE", "int8"))
     parser.add_argument("--cpu-threads", type=int, default=4)
     parser.add_argument("--repeat", type=int, default=1, help="repeat the optional audio probe for stable timing statistics")
+    expected = parser.add_mutually_exclusive_group()
+    expected.add_argument("--expected-text", help="reference transcript for CER/WER without printing the hypothesis")
+    expected.add_argument("--expected-file", help="UTF-8 file containing the reference transcript")
     parser.add_argument("--allow-model-download", action="store_true", help="allow a named model to be downloaded")
     parser.add_argument("--json", action="store_true", dest="json_output", help="print a machine-readable JSON report")
     args = parser.parse_args(argv)
-    result = run_doctor(
-        args.model,
-        audio_path=args.audio,
-        device=args.device,
-        compute_type=args.compute_type,
-        cpu_threads=args.cpu_threads,
-        allow_download=args.allow_model_download,
-        repeat=args.repeat,
-    )
+    expected_text = args.expected_text
+    if args.expected_file:
+        try:
+            expected_text = Path(args.expected_file).read_text(encoding="utf-8")
+        except (OSError, UnicodeError):
+            result = {"ok": False, "provider": "faster-whisper", "versions": {}, "error": "expected transcript file could not be read"}
+        else:
+            result = run_doctor(
+                args.model,
+                audio_path=args.audio,
+                device=args.device,
+                compute_type=args.compute_type,
+                cpu_threads=args.cpu_threads,
+                allow_download=args.allow_model_download,
+                repeat=args.repeat,
+                expected_text=expected_text,
+            )
+    else:
+        result = run_doctor(
+            args.model,
+            audio_path=args.audio,
+            device=args.device,
+            compute_type=args.compute_type,
+            cpu_threads=args.cpu_threads,
+            allow_download=args.allow_model_download,
+            repeat=args.repeat,
+            expected_text=expected_text,
+        )
     if args.json_output:
         print(json.dumps(result, ensure_ascii=False, sort_keys=True))
     elif result["ok"]:
@@ -216,6 +256,8 @@ def main(argv: list[str] | None = None) -> int:
                 f"{audio['inference_ms_p95']:.2f} ms over {audio['runs']} run(s),"
                 f" transcript chars {audio['transcript_chars']}"
             )
+            if "quality" in audio:
+                message += f", CER/WER {audio['quality']['cer']:.4f}/{audio['quality']['wer']:.4f}"
         process = result.get("process", {})
         if process.get("available"):
             message += (

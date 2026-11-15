@@ -60,10 +60,11 @@ source /path/to/venv/bin/activate
 WHISPER_MODEL=/path/to/model npm run asr:doctor
 WHISPER_MODEL=/path/to/model npm run asr:doctor -- --audio /path/to/sample.wav --json
 WHISPER_MODEL=/path/to/model npm run asr:doctor -- --audio /path/to/sample.wav --repeat 3 --json
+WHISPER_MODEL=/path/to/model npm run asr:doctor -- --audio /path/to/sample.wav --expected-file /path/to/reference.txt --json
 WHISPER_MODEL=/path/to/model npm run asr:smoke -- --json
 ```
 
-诊断报告只输出 provider、依赖版本、模型来源、加载耗时、音频格式、语言、推理耗时、转写字符数，以及进程 CPU 用户/系统耗时和峰值 RSS 内存，不输出原始转写文本或音频内容；`--audio` 仍只接受整数 PCM WAV。`--repeat N` 会重复音频推理并在 JSON 中报告平均、最小、P95 和运行次数，默认只运行一次。命名模型下载需要同时传 `--allow-model-download`，默认保持离线。资源指标在当前平台可用时报告，否则标记为不可用。
+诊断报告只输出 provider、依赖版本、模型来源、加载耗时、音频格式、语言、推理耗时、转写字符数，以及进程 CPU 用户/系统耗时和峰值 RSS 内存，不输出原始转写文本或音频内容；`--audio` 仍只接受整数 PCM WAV。`--repeat N` 会重复音频推理并在 JSON 中报告平均、最小、P95 和运行次数，默认只运行一次。传入 `--expected-text` 或 UTF-8 的 `--expected-file` 后，报告还会给出首轮推理的 CER/WER 和参考/假设文本计数；工具会统一大小写和空白，但不会打印参考文本或模型转写。命名模型下载需要同时传 `--allow-model-download`，默认保持离线。资源指标在当前平台可用时报告，否则标记为不可用。
 
 需要同时验证服务生命周期和 loopback HTTP 协议时，运行 `asr:smoke`。它会在本机启动仓库内的 `faster_whisper_server.py`，轮询 `/healthz`，发送指定或生成的 1 秒静音 WAV 到 `/transcribe`，最后清理服务进程。默认仍只使用本地模型；命名模型只有显式传 `--allow-model-download` 才允许下载。报告会脱敏为状态、语言、格式和文本字符数，不输出原始转写文本、模型路径或服务异常。
 
