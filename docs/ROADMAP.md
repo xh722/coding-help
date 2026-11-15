@@ -78,5 +78,5 @@
 - [x] ASR runtime doctor：提供依赖/模型诊断、可选 PCM WAV 重复推理统计、进程 CPU/峰值 RSS 资源指标、参考文本 CER/WER 和 JSON 报告；不输出原始转写文本，真实语音样本质量仍待授权环境。
 - [x] Linux bundle 发布门禁：CI 可锁定来源提交 SHA，清单不匹配时拒绝验收；签名、更新下载和回滚仍未实现。
 - [x] Debian x64 可安装包：`build:deb`/`check:deb` 验证包元数据、启动器、桌面入口和内部 bundle 清单。
-- [x] 物理硬件只读预检：确认当前容器无 `/dev/snd`、无 ALSA 声卡和不可用 PulseAudio；物理验收仍阻塞。
+- [x] 物理硬件只读预检：`audio:preflight` 检查 `/dev/snd`、ALSA、PulseAudio 和显示环境，不打开录音流；当前容器无可用设备，物理验收仍阻塞。
 - [x] Windows preflight 静态安全加强：默认核对授权样本 SHA-256，hash 不匹配时拒绝进入动态阶段；实际 Windows 运行仍阻塞。

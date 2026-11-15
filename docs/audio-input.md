@@ -99,6 +99,14 @@ Electron 的桌面音频路径依赖平台：Windows 可使用 display-media loo
 
 本阶段使用 Linux + Chromium 合成麦克风验证链路，**没有实测物理麦克风，也没有验证 Windows/macOS 系统权限和设备兼容性**。
 
+授权设备上的只读检查可以运行：
+
+```bash
+npm run audio:preflight -- --json
+```
+
+该命令只检查 `/dev/snd`、ALSA `arecord -l`、PulseAudio source 列表和显示环境，不打开录音流、不读取设备名称、不保存音频；没有硬件时返回退出码 2 和固定的 `NOT VERIFIED` 状态。
+
 ## 在桌面端使用
 
 1. `npm ci` 后执行 `npm start`，使用 `local-dev@example.com` / `local-dev-password` 登录。

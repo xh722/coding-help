@@ -35,6 +35,8 @@ jobs:
         run: npm run test:asr-quality
       - name: Check ASR runtime smoke contracts
         run: npm run test:asr-smoke
+      - name: Check audio hardware preflight contracts
+        run: npm run test:audio-preflight
       - name: Check syntax
         run: npm run check
       - name: Check whitespace
