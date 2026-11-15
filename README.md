@@ -21,7 +21,7 @@
 | 本地建议 provider | 已完成 | 根据最后一条转写生成本地建议，不访问网络 |
 | 屏幕枚举 | 已完成 | 通过 Electron `screen` 枚举显示器，`desktopCapturer` 获取屏幕图像 |
 | 截图 IPC | 已完成 | 获取 PNG data URL 并在 Dashboard 中显示最新截图预览 |
-| 屏幕 OCR | 已完成，Tesseract 待安装 | `CommandOrControl+Shift+O` 或 Dashboard 按钮捕获主屏全屏 PNG，只在内存中调用本地 Tesseract，Dashboard 只显示识别文字，不显示截图、不写历史 |
+| 屏幕 OCR | 已完成，本机 Tesseract 已验证 | `CommandOrControl+Shift+O` 或 Dashboard 按钮捕获主屏全屏 PNG，只在内存中调用本地 Tesseract，Dashboard 只显示识别文字，不显示截图、不写历史；真实屏幕内容准确率仍需单独验收 |
 | 标准麦克风采集 | 已实现，硬件待验 | 设备选择、自动响应设备变更、点击开始申请权限、AudioWorklet PCM、暂停释放/恢复重连；已通过真实 Electron 合成设备验证 |
 | 系统音频采集 | 已实现，平台硬件待验 | Dashboard 选择后，Start 触发 `getDisplayMedia({video:true,audio:true})`；立即停止视频轨道，只把单声道 PCM 送入现有 ASR；Windows/Linux/macOS 权限和真实回放仍待验 |
 | 系统音频能力探测 | 已完成 | 只读检查 Electron/平台路径和桌面源；实际采集另有独立 display-capture 权限和音频生命周期 |
@@ -34,6 +34,18 @@
 | Windows 动态行为对照 | 待做 | 需要授权的 Windows 虚拟机和隔离网络环境 |
 
 因此，当前版本适合本地运行、理解架构和继续替换 provider，不能声称已经完全复刻原软件。
+
+## 证据等级
+
+项目报告和路线图使用以下三档状态，分别表示证据强度，而不是简单的成功/失败：
+
+| 状态 | 含义 | 可得出的结论 |
+|---|---|---|
+| 对应评测器 | 已有直接测试、协议或真实运行证据对应目标评测器 | 可以标记该边界已验证 |
+| 部分匹配 | 只覆盖部分行为，或证据来自静态分析、合成设备、单样本或受限环境 | 只能标记部分验证，不能宣称完整通过 |
+| 未找到直接匹配 | 没有直接证据，只有推测或待授权环境验证 | 保持未验证，不把推测当作实现 |
+
+当前映射为：Electron smoke、麦克风权限和本地 ASR HTTP 协议属于“对应评测器”；ASR 识别质量和屏幕 OCR 真实内容属于“部分匹配”；物理音频设备、平台系统音频和 Windows 原版动态行为属于“未找到直接匹配”。
 
 ## 快速开始
 
