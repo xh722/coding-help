@@ -29,7 +29,7 @@
       </form>
       <div class="audio-input" aria-labelledby="audio-heading">
         <div><strong id="audio-heading">Local audio input</strong><p class="muted">Microphone, WAV and demo PCM are processed locally. Transcript output is a demo, not speech recognition.</p></div>
-        <div class="toolbar"><button id="audio-microphone" type="button" class="secondary">Use microphone</button><button id="audio-file" type="button" class="secondary">Choose WAV file</button><button id="audio-demo" type="button" class="secondary">Use demo PCM</button></div>
+        <div class="toolbar"><button id="audio-microphone" type="button" class="secondary">Use microphone</button><button id="audio-system" type="button" class="secondary">Use system audio</button><button id="audio-file" type="button" class="secondary">Choose WAV file</button><button id="audio-demo" type="button" class="secondary">Use demo PCM</button></div>
         <div id="microphone-controls" hidden>
           <label>Microphone device<select id="microphone-device"><option value="">Default microphone</option></select></label>
           <button id="microphone-refresh" type="button" class="secondary">Refresh devices</button>
@@ -50,6 +50,7 @@
     <footer class="footer"><span>All data stays on this device.</span><span id="privacy">Privacy indicator: local mode</span></footer>
   </main>
   <script src="./microphone.js" defer></script>
+  <script src="./system-audio.js" defer></script>
   <script src="./app.js" defer></script>
 </body>
 </html>

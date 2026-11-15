@@ -13,7 +13,7 @@ const { createAudioCaptureProvider, readWavFile, validateWavCapture } = require(
 const { createMicrophoneProvider } = require('../../../packages/providers/microphone.cjs');
 const { createLocalHttpTranscriptionProvider } = require('../../../packages/providers/transcription-http.cjs');
 const { createAsrSupervisor, parseAsrCommand } = require('../../../packages/providers/asr-supervisor.cjs');
-const { createSystemAudioCapabilityProvider } = require('../../../packages/providers/system-audio.cjs');
+const { createSystemAudioCapabilityProvider, createSystemAudioProvider } = require('../../../packages/providers/system-audio.cjs');
 const { createScreenOcrProvider } = require('../../../packages/providers/screen-ocr.cjs');
 const { installMediaPermissions } = require('./media-permissions.cjs');
 const { createLocalTranscriptionProvider } = require('../../../packages/providers/transcription.cjs');
@@ -143,6 +143,7 @@ function createAppDependencies(options = {}) {
   function makeAudio() {
     if (options.audio) return options.audio;
     if (selectedAudio.source === 'microphone') return createMicrophoneProvider({ sendControl: sendMicrophoneControl, clock: options.timer || globalThis });
+    if (selectedAudio.source === 'system') return createSystemAudioProvider({ sendControl: sendMicrophoneControl, clock: options.timer || globalThis });
     if (selectedAudio.source === 'file') return createAudioCaptureProvider({ source: 'file', filePath: selectedAudio.path, clock: options.timer || globalThis });
     // Three seconds of generated silence. This is a pipeline demonstration, not recorded speech.
     return createAudioCaptureProvider({ clock: options.timer || globalThis, chunks: Array.from({ length: 150 }, () => Buffer.alloc(640)) });
@@ -175,7 +176,7 @@ function createAppDependencies(options = {}) {
   }
   function registerMediaPermissions() {
     installMediaPermissions({ session: electron?.session?.defaultSession, getDashboard: () => windows.dashboard, dashboardUrl,
-      isExpected: () => selectedAudio.source === 'microphone' && audio.permissionExpected?.() === true });
+      isExpected: (kind) => (kind === 'system' ? selectedAudio.source === 'system' : selectedAudio.source === 'microphone') && audio.permissionExpected?.() === true });
   }
   function broadcast(event) {
     for (const window of Object.values(windows)) {
@@ -193,6 +194,9 @@ function createAppDependencies(options = {}) {
     MICROPHONE_UNAVAILABLE: 'The microphone could not start. Check device access and try again.',
     MICROPHONE_BACKPRESSURE: 'Audio processing could not keep up. Stop other busy tasks and try again.',
     MICROPHONE_TIMEOUT: 'Microphone access timed out. Check system permissions and start again.',
+    DISPLAY_NOT_FOUND: 'No desktop audio source was selected. Choose a display and try again.',
+    SYSTEM_AUDIO_UNAVAILABLE: 'System audio could not start. Check display capture and system audio permissions.',
+    SYSTEM_AUDIO_BACKPRESSURE: 'System audio processing could not keep up. Stop other busy tasks and try again.',
     FILE_NOT_FOUND: 'The selected audio file is no longer available.',
     FILE_READ_ERROR: 'The audio file could not be read.',
     MALFORMED_WAV: 'The selected file is not a valid PCM WAV file.',
@@ -218,7 +222,7 @@ function createAppDependencies(options = {}) {
     if (!['audio.requesting', 'audio.started', 'audio.paused', 'audio.resumed', 'audio.stopped', 'audio.error'].includes(event?.type)) return;
     const safe = { type: event.type, source: selectedAudio.source, timestamp: clock() };
     for (const key of ['sampleRate', 'channels', 'bitsPerSample']) {
-      if (Number.isFinite(event[key]) && event[key] > 0) { safe[key] = event[key]; if (selectedAudio.source === 'microphone') selectedAudio[key] = event[key]; }
+      if (Number.isFinite(event[key]) && event[key] > 0) { safe[key] = event[key]; if (['microphone', 'system'].includes(selectedAudio.source)) selectedAudio[key] = event[key]; }
     }
     if (['audio.started', 'audio.resumed'].includes(event.type) && transcription.setAudioFormat) {
       transcription.setAudioFormat({
@@ -433,9 +437,16 @@ function createAppDependencies(options = {}) {
       if (audioBusy() || selectingAudio) return { ok: false, error: { code: 'AUDIO_BUSY', message: 'Stop the session before changing its audio input.' } };
       selectedAudio = { source: 'microphone', label: 'Microphone' }; audioState = 'idle'; return audioStatus();
     },
+    'audio.use-system': () => {
+      if (audioBusy() || selectingAudio) return { ok: false, error: { code: 'AUDIO_BUSY', message: 'Stop the session before changing its audio input.' } };
+      selectedAudio = { source: 'system', label: 'System audio' }; audioState = 'idle'; return audioStatus();
+    },
     'audio.microphone-ready': (payload) => audio.ready?.(payload) || { ok: true, accepted: false },
     'audio.microphone-chunk': (payload) => audio.push?.(payload) || { ok: true, accepted: false },
     'audio.microphone-failed': (payload) => audio.fail?.(payload) || { ok: true, accepted: false },
+    'audio.system-ready': (payload) => audio.ready?.(payload) || { ok: true, accepted: false },
+    'audio.system-chunk': (payload) => audio.push?.(payload) || { ok: true, accepted: false },
+    'audio.system-failed': (payload) => audio.fail?.(payload) || { ok: true, accepted: false },
     'audio.get-system-capabilities': () => systemAudio.probe(),
     'session.list': async () => { await persistenceQueue; const token = auth.getSession?.()?.accessToken; if (!token || typeof sessionApi.list !== 'function') return []; try { return await sessionApi.list(token); } catch { return []; } },
     'session.export': async () => {
@@ -483,7 +494,7 @@ function createAppDependencies(options = {}) {
     ipcMain?.handle?.('local-rebuild:invoke', (event, command, payload) => {
       const trusted = Object.values(windows).some((win) => win && win.webContents === event?.sender);
       if (!trusted || event.senderFrame !== event.sender.mainFrame) return { ok: false, error: { code: 'INVALID_CONTEXT', message: 'Invalid renderer context' } };
-      const dashboardOnlyCommand = typeof command === 'string' && (command.startsWith('audio.microphone-') || command === 'audio.use-microphone' || command === 'audio.get-system-capabilities' || command === 'capture.ocr-screen' || (selectedAudio.source === 'microphone' && ['session.start', 'session.resume'].includes(command)));
+      const dashboardOnlyCommand = typeof command === 'string' && (command.startsWith('audio.microphone-') || command.startsWith('audio.system-') || command === 'audio.use-microphone' || command === 'audio.use-system' || command === 'audio.get-system-capabilities' || command === 'capture.ocr-screen' || (['microphone', 'system'].includes(selectedAudio.source) && ['session.start', 'session.resume'].includes(command)));
       if (dashboardOnlyCommand && (event.sender !== windows.dashboard?.webContents || event.sender.getURL() !== dashboardUrl)) return { ok: false, error: { code: 'INVALID_CONTEXT', message: 'Invalid renderer context' } };
       return router.dispatch(command, payload, { source: 'renderer', windowId: event.sender.id });
     });

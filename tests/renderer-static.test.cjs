@@ -46,6 +46,9 @@ test('dashboard renderer uses only the narrow local bridge', () => {
   assert.match(app, /screen-ocr-result/);
   assert.match(read('index.html'), /id="screen-ocr"/);
   assert.match(read('index.html'), /aria-keyshortcuts="Control\+Shift\+O"/);
+  assert.match(app, /audio\.use-system/);
+  assert.match(read('index.html'), /id="audio-system"/);
+  assert.match(read('index.html'), /system-audio\.js/);
 });
 
 test('overlay renderer uses only the narrow local bridge', () => {

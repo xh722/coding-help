@@ -94,3 +94,20 @@ test('system audio capability probe is Dashboard-only and never starts a stream'
   assert.equal(result.captureStarted, false); assert.ok(['potential', 'unavailable', 'unknown'].includes(result.capability));
   assert.equal((await h.invoke('audio.get-system-capabilities', {}, h.deps.windows.overlay.webContents)).error.code, 'INVALID_CONTEXT');
 });
+
+test('system audio session negotiates display capture, forwards PCM, and gates display permission', async (t) => {
+  const h = harness(); t.after(() => h.deps.shutdown());
+  assert.equal((await h.invoke('audio.use-system')).source, 'system');
+  const details = { requestingUrl: h.sender.getURL(), isMainFrame: true, mediaTypes: ['video', 'audio'] };
+  assert.equal(h.check(h.sender, 'display-capture', 'file://', details), false);
+  await h.invoke('session.start', { title: 'System audio' });
+  const start = h.sent.filter(({ event }) => event.type === 'system-audio.start').at(-1)?.event;
+  assert.ok(start?.captureId);
+  assert.equal(h.check(h.sender, 'display-capture', 'file://', details), true);
+  assert.deepEqual(await h.invoke('audio.system-ready', { captureId: start.captureId, sampleRate: 48000, channels: 1 }), { ok: true, accepted: true });
+  assert.deepEqual(await h.invoke('audio.system-chunk', { captureId: start.captureId, sequence: 0, data: new Uint8Array(640) }), { ok: true, accepted: true });
+  assert.equal((await h.invoke('audio.get-status')).source, 'system');
+  await h.invoke('session.stop');
+  assert.equal(h.deps.audio.permissionExpected(), false);
+  assert.equal(h.check(h.sender, 'display-capture', 'file://', details), false);
+});

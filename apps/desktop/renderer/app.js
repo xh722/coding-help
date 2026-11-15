@@ -2,6 +2,7 @@
   'use strict';
   const bridge = window.localRebuild;
   const microphone = window.createMicrophoneCapture({ bridge, mediaDevices: navigator.mediaDevices, AudioContextClass: window.AudioContext, AudioWorkletNodeClass: window.AudioWorkletNode, workletUrl: './pcm-worklet.js' });
+  const systemAudio = window.createSystemAudioCapture({ bridge, mediaDevices: navigator.mediaDevices, AudioContextClass: window.AudioContext, AudioWorkletNodeClass: window.AudioWorkletNode, workletUrl: './pcm-worklet.js' });
   const $ = (id) => document.getElementById(id);
   const state = { auth: null, session: null, history: [], selectedHistoryId: null, overlayVisible: false };
   const error = (message) => { const box = $('error'); box.textContent = message; box.hidden = !message; };
@@ -11,14 +12,14 @@
   };
   const addEvent = (list, text, timestamp) => { const empty = list.querySelector('.empty'); if (empty) empty.remove(); const item = document.createElement('li'); item.textContent = text; if (timestamp) { const time = document.createElement('time'); time.textContent = new Date(timestamp).toLocaleTimeString(); item.append(time); } list.prepend(item); };
   function renderAuth() { const signedIn = Boolean(state.auth); $('auth-badge').textContent = signedIn ? `Signed in: ${state.auth.user?.email || 'local user'}` : 'Signed out'; $('logout').disabled = !signedIn; $('login-form').querySelector('button[type="submit"]').disabled = signedIn; }
-  function renderSession() { const session = state.session || { state: 'idle' }; const current = session.state; const badge = $('session-state'); badge.textContent = current[0].toUpperCase() + current.slice(1); badge.className = `badge ${current}`; $('start').disabled = !state.auth || !['idle', 'stopped'].includes(current); $('pause').disabled = current !== 'active'; $('resume').disabled = current !== 'paused'; $('stop').disabled = !['active', 'paused'].includes(current); $('screenshot').disabled = !state.auth; $('screen-ocr').disabled = !state.auth; $('system-audio-check').disabled = !state.auth || ['active', 'paused'].includes(current); for (const id of ['audio-file', 'audio-demo', 'audio-microphone', 'microphone-device', 'microphone-refresh']) $(id).disabled = ['active', 'paused'].includes(current); $('overlay-recording')?.classList.toggle('active', current === 'active'); }
+  function renderSession() { const session = state.session || { state: 'idle' }; const current = session.state; const badge = $('session-state'); badge.textContent = current[0].toUpperCase() + current.slice(1); badge.className = `badge ${current}`; $('start').disabled = !state.auth || !['idle', 'stopped'].includes(current); $('pause').disabled = current !== 'active'; $('resume').disabled = current !== 'paused'; $('stop').disabled = !['active', 'paused'].includes(current); $('screenshot').disabled = !state.auth; $('screen-ocr').disabled = !state.auth; $('audio-system').disabled = ['active', 'paused'].includes(current); $('system-audio-check').disabled = !state.auth || ['active', 'paused'].includes(current); for (const id of ['audio-file', 'audio-demo', 'audio-microphone', 'microphone-device', 'microphone-refresh']) $(id).disabled = ['active', 'paused'].includes(current); $('overlay-recording')?.classList.toggle('active', current === 'active'); }
   function renderHistory() { const list = $('history-list'); list.replaceChildren(); const selected = state.history.find((session) => session.id === state.selectedHistoryId) || null; $('history-export').disabled = !selected; $('history-backup').disabled = !state.auth; $('history-import').disabled = !state.auth; $('history-delete').disabled = !selected; $('history-detail').hidden = !selected; $('history-detail').textContent = selected ? JSON.stringify(selected, null, 2) : ''; if (!state.history.length) { const empty = document.createElement('li'); empty.className = 'empty'; empty.textContent = 'No saved sessions yet.'; list.append(empty); return; } for (const session of state.history) { const item = document.createElement('li'); item.tabIndex = 0; item.classList.toggle('selected', session.id === state.selectedHistoryId); const title = document.createElement('strong'); title.textContent = session.metadata?.title || session.id; const details = document.createElement('span'); details.textContent = ` · ${session.events?.length || 0} events`; item.append(title, details); item.addEventListener('click', () => { state.selectedHistoryId = session.id; renderHistory(); }); list.append(item); } }
   async function refreshHistory() { const history = await call('session.list'); if (Array.isArray(history)) { state.history = history; renderHistory(); } }
   function renderAudio(status) {
     if (!status) return;
     const isMicrophone = status.source === 'microphone'; $('microphone-controls').hidden = !isMicrophone;
     $('audio-source').textContent = `${status.label} · ${status.sampleRate} Hz · ${status.channels} channel(s) · ${status.bitsPerSample} bit`;
-    const labels = { requesting: 'Requesting microphone access', started: 'Microphone active', resumed: 'Microphone active', paused: 'Paused — microphone released', stopped: 'Stopped — microphone released', idle: 'Microphone ready — click Start', error: 'Microphone stopped after an error' };
+    const labels = { requesting: status.source === 'system' ? 'Requesting system audio access' : 'Requesting microphone access', started: status.source === 'system' ? 'System audio active' : 'Microphone active', resumed: status.source === 'system' ? 'System audio active' : 'Microphone active', paused: 'Paused — audio released', stopped: 'Stopped — audio released', idle: status.source === 'system' ? 'System audio ready — click Start' : 'Microphone ready — click Start', error: 'Audio stopped after an error' };
     const mode = status.transcriptionMode === 'local-http' ? 'LOCAL ASR · loopback' : 'DEMO · no speech recognition';
     $('transcription-label').textContent = mode;
     $('audio-status').textContent = `${isMicrophone ? (labels[status.state] || status.state) : status.state} · ${status.chunks || 0} chunks · ${status.bytes || 0} bytes · ${mode}`;
@@ -46,13 +47,16 @@
   $('audio-file').addEventListener('click', async () => { const status = await call('audio.select-file'); if (status) { renderAudio(status); error(''); } });
   $('audio-demo').addEventListener('click', async () => { const status = await call('audio.use-demo'); if (status) { renderAudio(status); error(''); } });
   $('audio-microphone').addEventListener('click', async () => { const status = await call('audio.use-microphone'); if (status) { renderAudio(status); error(''); await refreshDevices(); } });
+  $('audio-system').addEventListener('click', async () => { const status = await call('audio.use-system'); if (status) { renderAudio(status); error(''); $('system-audio-status').hidden = false; $('system-audio-status').textContent = 'System audio will ask for display capture when the session starts.'; } });
   $('microphone-refresh').addEventListener('click', refreshDevices);
-  window.addEventListener('pagehide', () => { microphone.dispose(); });
-  window.addEventListener('beforeunload', () => { microphone.dispose(); });
+  window.addEventListener('pagehide', () => { microphone.dispose(); systemAudio.dispose(); });
+  window.addEventListener('beforeunload', () => { microphone.dispose(); systemAudio.dispose(); });
   microphone.onDeviceChange((devices) => { if (!$('microphone-controls').hidden) refreshDevices(devices); });
   bridge.onEvent((event) => {
     if (event?.type === 'microphone.start') microphone.start({ captureId: event.captureId, deviceId: $('microphone-device').value }).then(refreshDevices).catch(() => error('Microphone could not start.'));
     if (event?.type === 'microphone.stop' && microphone.getState().captureId === event.captureId) microphone.stop();
+    if (event?.type === 'system-audio.start') systemAudio.start({ captureId: event.captureId }).catch(() => error('System audio could not start.'));
+    if (event?.type === 'system-audio.stop' && systemAudio.getState().captureId === event.captureId) systemAudio.stop();
   });
   $('history-refresh').addEventListener('click', refreshHistory);
   $('history-export').addEventListener('click', () => { const selected = state.history.find((session) => session.id === state.selectedHistoryId); if (!selected) return; const blob = new Blob([JSON.stringify(selected, null, 2)], { type: 'application/json' }); const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = `${selected.metadata?.title || selected.id}.json`; link.click(); URL.revokeObjectURL(link.href); });
