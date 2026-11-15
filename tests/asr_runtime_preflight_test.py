@@ -36,6 +36,29 @@ class AsrRuntimePreflightTests(unittest.TestCase):
         self.assertTrue(captured["local_files_only"])
         self.assertEqual(captured["cpu_threads"], 2)
 
+    def test_named_model_requires_explicit_download_opt_in(self):
+        module = types.SimpleNamespace(WhisperModel=object)
+        ok, message = preflight.inspect_runtime("tiny", module=module, importer=None)
+        self.assertFalse(ok)
+        self.assertIn("model path is missing", message)
+
+    def test_named_model_can_be_loaded_with_download_opt_in(self):
+        captured = {}
+
+        class FakeModel:
+            def __init__(self, name, **kwargs):
+                captured.update(name=name, **kwargs)
+
+        module = types.SimpleNamespace(WhisperModel=FakeModel)
+        ok, message = preflight.inspect_runtime(
+            "tiny", module=module, importer=None, allow_download=True, cpu_threads=3
+        )
+        self.assertTrue(ok)
+        self.assertEqual(message, "faster-whisper model loaded")
+        self.assertEqual(captured["name"], "tiny")
+        self.assertFalse(captured["local_files_only"])
+        self.assertEqual(captured["cpu_threads"], 3)
+
 
 if __name__ == "__main__":
     unittest.main()

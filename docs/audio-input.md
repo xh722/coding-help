@@ -45,6 +45,14 @@ WHISPER_MODEL=/path/to/model npm run asr:preflight
 
 预检只使用本地文件；依赖、模型目录或模型加载失败会返回 `NOT VERIFIED` 和退出码 2，不会被当成通过。
 
+如果模型尚未落盘，也可以显式检查一个命名模型。该模式会允许 `faster-whisper` 访问模型仓库，默认仍不会联网：
+
+```bash
+WHISPER_MODEL=tiny npm run asr:preflight -- --allow-model-download
+```
+
+只有同时传入 `--allow-model-download` 时才会尝试下载命名模型；已有本地模型目录即使带上该开关仍使用 `local_files_only=True`。网络失败、模型缺失或依赖不完整统一返回退出码 2，并输出 `NOT VERIFIED`。模型下载缓存由 `huggingface-hub` 管理，建议在验证时设置 `HF_HOME` 到用户明确选择的目录。
+
 如果希望桌面应用负责服务生命周期，可以额外提供命令的 JSON argv 数组。应用只会调用数组中的第一个元素和参数，不经过 shell；启动前会轮询 loopback `/healthz`，失败时最多重试，退出应用时发送 `SIGTERM` 并在超时后清理子进程：
 
 ```bash
