@@ -191,3 +191,29 @@ test('local API exports an authenticated sanitized session backup', async () => 
     assert.equal(unauthorized.response.status, 401);
   } finally { await api.stop(); }
 });
+
+test('local API imports a validated backup atomically and rejects id conflicts', async () => {
+  const api = createLocalApi({ host: '127.0.0.1', port: 0, clock: () => 1700000000000 });
+  await api.start();
+  const base = `http://${api.address().host}:${api.address().port}`;
+  try {
+    const login = await request(base, '/auth/login', { method: 'POST', body: JSON.stringify({ email: 'local-dev@example.com', password: 'local-dev-password' }) });
+    const headers = { authorization: `Bearer ${login.body.accessToken}` };
+    const backup = {
+      format: 'coding-help-session-backup', schemaVersion: 1, product: 'interviewcoder-local-rebuild',
+      exportedAt: '2026-11-15T00:00:00.000Z',
+      sessions: [{ id: 'imported-session', metadata: { title: 'Imported' }, events: [{ type: 'note', text: 'kept' }] }],
+    };
+    const imported = await request(base, '/backup', { method: 'POST', headers, body: JSON.stringify(backup) });
+    assert.equal(imported.response.status, 201);
+    assert.deepEqual(imported.body, { imported: 1 });
+    const listed = await request(base, '/sessions', { headers });
+    assert.equal(listed.body[0].id, 'imported-session');
+
+    const conflict = await request(base, '/backup', { method: 'POST', headers, body: JSON.stringify({ ...backup, sessions: [{ ...backup.sessions[0], metadata: { title: 'Should not replace' } }, { id: 'new-session', events: [] }] }) });
+    assert.equal(conflict.response.status, 409);
+    assert.deepEqual(conflict.body.error, { code: 'BACKUP_CONFLICT', message: 'A backup session already exists.' });
+    const afterConflict = await request(base, '/sessions', { headers });
+    assert.deepEqual(afterConflict.body.map((session) => session.id), ['imported-session']);
+  } finally { await api.stop(); }
+});

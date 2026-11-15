@@ -5,7 +5,7 @@ const http = require('node:http');
 const { randomUUID } = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
-const { createBackupDocument } = require('../../packages/core/backup.cjs');
+const { createBackupDocument, parseBackupDocument } = require('../../packages/core/backup.cjs');
 
 const DEMO_EMAIL = 'local-dev@example.com';
 const DEMO_PASSWORD = 'local-dev-password';
@@ -144,6 +144,20 @@ function createLocalApi({ host = '127.0.0.1', port = 0, clock = () => Date.now()
     if (req.method === 'GET' && url.pathname === '/backup') {
       if (!requireAuth(req, res)) return;
       return json(res, 200, createBackupDocument([...sessions.values()], { exportedAt: new Date(clock()).toISOString() }));
+    }
+    if (req.method === 'POST' && url.pathname === '/backup') {
+      if (!requireAuth(req, res)) return;
+      let backup;
+      try { backup = parseBackupDocument(body); }
+      catch { return error(res, 400, 'BACKUP_INVALID', 'Backup document is invalid'); }
+      if (backup.sessions.some((session) => sessions.has(session.id))) return error(res, 409, 'BACKUP_CONFLICT', 'A backup session already exists.');
+      const nextSessions = new Map(sessions);
+      for (const session of backup.sessions) nextSessions.set(session.id, structuredClone(session));
+      try { persistSessions(storagePath, nextSessions); }
+      catch { return error(res, 500, 'BACKUP_IMPORT_FAILED', 'Unable to save imported sessions.'); }
+      sessions.clear();
+      for (const [id, session] of nextSessions) sessions.set(id, session);
+      return json(res, 201, { imported: backup.sessions.length });
     }
     if (req.method === 'POST' && url.pathname === '/sessions') {
       if (!requireAuth(req, res)) return;

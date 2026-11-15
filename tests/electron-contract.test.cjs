@@ -2,6 +2,9 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
 
 const preload = require('../apps/desktop/preload/index.cjs');
 
@@ -261,4 +264,23 @@ test('main exposes a sanitized session backup through IPC', async () => {
   });
   const result = await deps.router.dispatch('session.export', {}, { source: 'renderer', windowId: 1 });
   assert.deepEqual(result, backup);
+});
+
+test('main imports a validated session backup through the desktop file picker', async (t) => {
+  const { createAppDependencies } = require('../apps/desktop/main/index.cjs');
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'coding-help-backup-'));
+  const file = path.join(directory, 'backup.json');
+  const backup = { format: 'coding-help-session-backup', schemaVersion: 1, product: 'interviewcoder-local-rebuild', exportedAt: '2026-11-15T00:00:00.000Z', sessions: [{ id: 'restored-1', events: [] }] };
+  fs.writeFileSync(file, JSON.stringify(backup));
+  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  let restored;
+  const deps = createAppDependencies({
+    electron: { dialog: { showOpenDialog: async () => ({ canceled: false, filePaths: [file] }) } },
+    auth: { getSession: () => ({ accessToken: 'access-1' }) },
+    sessionApi: { restore: async (token, document) => { restored = { token, document }; return { imported: 1 }; } },
+  });
+  t.after(() => deps.shutdown());
+  const result = await deps.router.dispatch('session.import', {}, { source: 'renderer', windowId: 1 });
+  assert.deepEqual(result, { ok: true, imported: 1 });
+  assert.deepEqual(restored, { token: 'access-1', document: backup });
 });

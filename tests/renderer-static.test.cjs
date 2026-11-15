@@ -30,12 +30,14 @@ test('dashboard renderer uses only the narrow local bridge', () => {
   assert.match(read('index.html'), /id="history-detail"/);
   assert.match(read('index.html'), /id="history-export"/);
   assert.match(read('index.html'), /id="history-backup"/);
+  assert.match(read('index.html'), /id="history-import"/);
   assert.match(read('index.html'), /id="history-delete"/);
   assert.match(app, /screenshot-preview/);
   assert.match(app, /dataUrl/);
   assert.match(app, /session\.list/);
   assert.match(app, /session\.delete/);
   assert.match(app, /session\.export/);
+  assert.match(app, /session\.import/);
   assert.match(app, /JSON\.stringify/);
   assert.match(app, /transcript\.partial/);
   assert.match(app, /audio\.get-system-capabilities/);

@@ -1,5 +1,6 @@
 'use strict';
 
+const fs = require('node:fs');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
 const { randomUUID } = require('node:crypto');
@@ -56,7 +57,7 @@ function createLocalSessionApiTransport({ ensureStarted }) {
     if (body !== undefined) { options.headers['content-type'] = 'application/json'; options.body = JSON.stringify(body); }
     const response = await fetch(`http://${address.host}:${address.port}${pathname}`, options);
     const value = response.status === 204 ? null : await response.json();
-    if (!response.ok) throw new Error(value?.error?.message || 'Session API request failed');
+    if (!response.ok) throw Object.assign(new Error(value?.error?.message || 'Session API request failed'), { code: value?.error?.code });
     return value;
   }
   return {
@@ -65,6 +66,7 @@ function createLocalSessionApiTransport({ ensureStarted }) {
     list: (token) => request('GET', '/sessions', token),
     delete: (token, id) => request('DELETE', `/sessions/${encodeURIComponent(id)}`, token),
     backup: (token) => request('GET', '/backup', token),
+    restore: (token, backup) => request('POST', '/backup', token, backup),
   };
 }
 
@@ -259,6 +261,22 @@ function createAppDependencies(options = {}) {
       return { ok: false, error: { code, message: audioMessages[code] } };
     } finally { selectingAudio = false; }
   }
+  async function importSessionBackup() {
+    if (audioBusy() || selectingAudio) return { ok: false, error: { code: 'SESSION_ACTIVE', message: 'Stop the session before importing a backup.' } };
+    if (!electron?.dialog?.showOpenDialog) return { ok: false, error: { code: 'DIALOG_UNAVAILABLE', message: 'File selection requires the desktop app.' } };
+    const token = auth.getSession?.()?.accessToken;
+    if (!token || typeof sessionApi.restore !== 'function') return { ok: false, error: { code: 'AUTH_REQUIRED', message: 'Sign in required' } };
+    try {
+      const result = await electron.dialog.showOpenDialog({ title: 'Import a local session backup', properties: ['openFile'], filters: [{ name: 'JSON backup', extensions: ['json'] }] });
+      if (result.canceled || !result.filePaths?.[0]) return { canceled: true };
+      const parsed = parseBackupDocument(JSON.parse(fs.readFileSync(result.filePaths[0], 'utf8')));
+      const imported = await sessionApi.restore(token, parsed);
+      return { ok: true, imported: Number.isInteger(imported?.imported) ? imported.imported : 0 };
+    } catch (error) {
+      if (error?.code === 'BACKUP_CONFLICT') return { ok: false, error: { code: 'BACKUP_CONFLICT', message: 'A backup session already exists.' } };
+      return { ok: false, error: { code: 'SESSION_IMPORT_FAILED', message: 'Unable to import session backup.' } };
+    }
+  }
   async function startSession(metadata) {
     if (selectingAudio) return { ok: false, error: { code: 'AUDIO_BUSY', message: 'Finish choosing the audio input first.' } };
     if (!['idle', 'stopped'].includes(session.getSnapshot().state)) return { ok: false, error: { code: 'INVALID_STATE', message: 'A session is already running.' } };
@@ -357,6 +375,7 @@ function createAppDependencies(options = {}) {
       if (!token || typeof sessionApi.backup !== 'function') return { ok: false, error: { code: 'AUTH_REQUIRED', message: 'Sign in required' } };
       try { return parseBackupDocument(await sessionApi.backup(token)); } catch { return { ok: false, error: { code: 'SESSION_EXPORT_FAILED', message: 'Unable to export session backup' } }; }
     },
+    'session.import': importSessionBackup,
     'session.delete': async ({ id }) => {
       if (id === apiSessionId && audioBusy()) return { ok: false, error: { code: 'SESSION_ACTIVE', message: 'Stop the session before deleting it.' } };
       await persistenceQueue;
