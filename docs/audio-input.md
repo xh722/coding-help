@@ -140,6 +140,14 @@ sudo apt-get install -y tesseract-ocr tesseract-ocr-chi-sim tesseract-ocr-eng
 
 没有 Tesseract 时快捷键仍可触发，但界面会显示本地 OCR 不可用；不会自动下载 OCR 程序或语言包。
 
+安装后可以运行只读预检确认可执行文件和语言包：
+
+```bash
+npm run ocr:preflight -- --json
+```
+
+预检只执行 `tesseract --version` 和 `tesseract --list-langs`，不读取屏幕、不启动 OCR、不访问网络；完整可用时返回退出码 0，缺少程序或语言包时返回退出码 2 和固定错误码。
+
 ## 支持范围
 
 | 属性 | 支持范围 |

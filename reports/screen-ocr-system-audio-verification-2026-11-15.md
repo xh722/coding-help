@@ -21,6 +21,7 @@
 
 ```bash
 npm run test:screen-ocr
+npm run test:screen-ocr-preflight
 node --test tests/system-audio.test.cjs tests/system-audio-renderer.test.cjs
 node --test tests/desktop-microphone.test.cjs tests/media-permissions.test.cjs
 npm test
@@ -28,7 +29,7 @@ npm run check
 node --check tools/electron-smoke.cjs
 ```
 
-结果：OCR provider 5 项通过；系统音频 renderer/provider 6 项通过；桌面音频与权限集成 8 项通过；全量 Node 测试 170 项通过；Python ASR/硬件预检合计 39 项通过；JavaScript 语法检查 65 个文件和 Electron smoke 脚本语法检查通过。`tools/electron-smoke.cjs` 已加入 OCR 可用/不可用两条路径，以及 OCR 不更新截图预览的断言。
+结果：OCR provider 5 项通过；OCR 本机预检 4 项通过；系统音频 renderer/provider 6 项通过；桌面音频与权限集成 8 项通过；全量 Node 测试 174 项通过；Python ASR/硬件预检合计 39 项通过；JavaScript 语法检查 67 个文件和 Electron smoke 脚本语法检查通过。`tools/electron-smoke.cjs` 已加入 OCR 可用/不可用两条路径，以及 OCR 不更新截图预览的断言。
 
 覆盖的关键断言：
 
@@ -50,7 +51,7 @@ DISPLAY: unset
 ffmpeg: /usr/bin/ffmpeg
 ```
 
-本轮执行 `npm run smoke` 返回退出码 2（`NOT VERIFIED`），因为该容器没有 `DISPLAY`，且没有安装 `xvfb-run`；这不是 smoke 通过，也不是应用失败。具备桌面或 Xvfb 后，smoke 会实际点击 OCR 按钮，并验证成功结果或不可用状态以及截图预览保持不变。
+本轮执行 `npm run ocr:preflight -- --json` 返回退出码 2：`{"ok":false,"code":"OCR_UNAVAILABLE","languages":[],"missing":["chi_sim","eng"]}`。本轮执行 `npm run smoke` 返回退出码 2（`NOT VERIFIED`），因为该容器没有 `DISPLAY`，且没有安装 `xvfb-run`；这不是 smoke 通过，也不是应用失败。具备桌面或 Xvfb 后，smoke 会实际点击 OCR 按钮，并验证成功结果或不可用状态以及截图预览保持不变。
 
 安装 OCR 依赖后可运行：
 
