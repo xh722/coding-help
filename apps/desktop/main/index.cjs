@@ -17,6 +17,7 @@ const { installMediaPermissions } = require('./media-permissions.cjs');
 const { createLocalTranscriptionProvider } = require('../../../packages/providers/transcription.cjs');
 const { createSuggestionProvider } = require('../../../packages/providers/suggestions.cjs');
 const { createLocalApi } = require('../../../services/local-api/server.cjs');
+const { parseBackupDocument } = require('../../../packages/core/backup.cjs');
 
 const DEFAULT_VERSION = '0.1.0';
 function memoryStore() { let value = null; return { read: () => value, write: (next) => { value = structuredClone(next); }, clear: () => { value = null; } }; }
@@ -63,6 +64,7 @@ function createLocalSessionApiTransport({ ensureStarted }) {
     append: (token, id, event) => request('POST', `/sessions/${encodeURIComponent(id)}/events`, token, event),
     list: (token) => request('GET', '/sessions', token),
     delete: (token, id) => request('DELETE', `/sessions/${encodeURIComponent(id)}`, token),
+    backup: (token) => request('GET', '/backup', token),
   };
 }
 
@@ -349,6 +351,12 @@ function createAppDependencies(options = {}) {
     'audio.microphone-failed': (payload) => audio.fail?.(payload) || { ok: true, accepted: false },
     'audio.get-system-capabilities': () => systemAudio.probe(),
     'session.list': async () => { await persistenceQueue; const token = auth.getSession?.()?.accessToken; if (!token || typeof sessionApi.list !== 'function') return []; try { return await sessionApi.list(token); } catch { return []; } },
+    'session.export': async () => {
+      await persistenceQueue;
+      const token = auth.getSession?.()?.accessToken;
+      if (!token || typeof sessionApi.backup !== 'function') return { ok: false, error: { code: 'AUTH_REQUIRED', message: 'Sign in required' } };
+      try { return parseBackupDocument(await sessionApi.backup(token)); } catch { return { ok: false, error: { code: 'SESSION_EXPORT_FAILED', message: 'Unable to export session backup' } }; }
+    },
     'session.delete': async ({ id }) => {
       if (id === apiSessionId && audioBusy()) return { ok: false, error: { code: 'SESSION_ACTIVE', message: 'Stop the session before deleting it.' } };
       await persistenceQueue;

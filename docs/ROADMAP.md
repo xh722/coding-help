@@ -21,6 +21,7 @@
 - [ ] **系统音频与 Windows 原版采集对照**：系统回放采集和原版 agent 的协议兼容仍未实现；Windows 动态验证继续跳过。
 - [ ] **具体本地 ASR 模型**：loopback HTTP 适配器、WAV 封装、超时和返回校验已完成；待选择、授权并在本机部署实际 Whisper/Vosk 等模型服务。仓库不下载或捆绑模型。
 - [x] **离线更新链**：`build:update`、`apply-update.cjs` 和 `docs/offline-updates.md` 已完成本地签名、完整性、原子切换、失败清理和回滚；网络下载、自动更新和原版 generic updater 仍未接入。
+- [x] **本地会话备份**：`session.export` 和 Dashboard `Export backup` 已完成版本化 JSON 导出、敏感字段清理、认证保护和主进程 schema 校验；自动导入和跨版本迁移仍未开放。
 - [x] **Linux 可安装桌面包**：生成 Debian x64 包，提供 `/opt` bundle、系统启动器和桌面入口，并在 CI 解包复验 manifest；代码签名、自动更新和 Windows/macOS 安装包仍未完成。
 - [x] **本地 ASR 生命周期管理**：可选 supervisor 以 loopback `/healthz` 为就绪条件，使用无 shell 的 JSON argv 启动子进程，有限重试、静态错误、SIGTERM/SIGKILL 清理和状态暴露均有自动化测试；实际模型和识别质量仍未验证。
 

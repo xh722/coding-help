@@ -28,6 +28,7 @@
 | 原版自动更新链 | 未完成 | 只保留静态逆向证据，未接入原版更新源 |
 | Linux x64 桌面 bundle / Debian 包 | 已完成，签名待做 | 可复现复制 Electron runtime + 本地应用，生成 SHA-256 manifest，并可生成 Debian x64 包；不包含原版安装器或 native 文件 |
 | 离线签名更新与回滚 | 已完成本地链路，生产密钥待配 | 本地 GPG detached signature、归档哈希、tar 路径检查、原子 `current/previous` 指针和失败清理；不连接原版更新服务器 |
+| 本地会话备份导出 | 已完成 | Dashboard 导出全部会话的版本化 JSON；递归清理认证凭据，不上传网络；自动导入尚未开放 |
 | Windows 动态行为对照 | 待做 | 需要授权的 Windows 虚拟机和隔离网络环境 |
 
 因此，当前版本适合本地运行、理解架构和继续替换 provider，不能声称已经完全复刻原软件。
@@ -81,8 +82,11 @@ Debian 包把完整 bundle 安装到 `/opt/interviewcoder-local-rebuild`，并�
 5. 点击 `Pause`、`Resume` 和 `Stop` 验证状态转换。
 6. 打开 Overlay，观察 Local Mode 指示器和会话状态。
 7. 使用 `Take screenshot` 测试显示器枚举和截图 IPC；截图会显示在 Dashboard 的 Latest screenshot 区域。
+8. 在 Saved sessions 中点击 `Export backup` 导出全部本地会话；单个会话仍可用 `Export JSON` 导出。
 
 默认使用三秒演示 PCM；也可以点击 `Choose WAV file` 读取本地文件，或点击 `Use microphone` 选择麦克风。选择和刷新设备不会录音；系统设备变化会自动刷新列表，已拔出的设备会回退到 Default microphone 并提示。点击 `Start` 后才申请麦克风访问。`Pause` 释放音轨，`Resume` 重新采集；停止、刷新和退出登录均结束采集。默认转写是演示输出；配置本机 ASR loopback 服务后才会执行实际识别。详细用法、权限排错、格式限制和隐私说明见 [音频输入指南](docs/audio-input.md)。
+
+会话备份格式、隐私清理和当前不支持自动导入的原因见 [本地会话备份](docs/session-backup.md)。
 
 需要应用自动管理本地 ASR 子进程时，同时设置 `CODING_HELP_ASR_COMMAND` 为 JSON argv 数组：
 
@@ -105,6 +109,7 @@ npm test
 覆盖范围包括：
 
 - 版本化 JSON 存储和原子写入。
+- 全量会话备份 schema、敏感字段清理、认证保护和主进程边界。
 - 登录、刷新、退出、过期 token 和错误凭据。
 - IPC 命令白名单、payload 校验、来源/窗口校验和错误清洗。
 - session 状态机、事件时间线、嵌套 payload 深拷贝和幂等停止。
@@ -154,6 +159,8 @@ packages/core/
   storage.cjs           版本化 JSON 存储
   session.cjs           会话状态机和事件记录
   ipc.cjs               IPC 白名单、schema 和错误清洗
+  backup.cjs            版本化会话备份、敏感字段清理和 schema 校验
+  update.cjs            离线 manifest、GPG 签名、归档校验、原子切换和回滚
 
 packages/providers/
   audio.cjs             PCM / WAV 输入和资源清理
@@ -161,7 +168,6 @@ packages/providers/
   transcription.cjs     演示转写及 PCM 输入统计
   transcription-http.cjs 可选 loopback ASR WAV 适配器
   asr-supervisor.cjs  本地 ASR 子进程、健康检查、重试和退出清理
-  update.cjs          离线 manifest、GPG 签名、归档校验、原子切换和回滚
   suggestions.cjs       本地建议 provider
   capture.cjs           显示器/截图接口和注入式实现
 
@@ -246,4 +252,4 @@ Windows 原版动态验证已按要求记为待办并跳过，不阻塞上述标
 
 ## 最终验证
 
-PCM/WAV 阶段证据见 [音频阶段验证报告](reports/audio-input-verification-2026-11-10.md)；麦克风实现、测试结果和未验证范围见 [麦克风阶段验证报告](reports/microphone-verification-2026-11-10.md)；可选 ASR 适配器见 [本地 ASR 验证报告](reports/local-asr-adapter-verification-2026-11-10.md)；ASR 生命周期见 [ASR supervisor 验证报告](reports/asr-supervisor-verification-2026-11-13.md)；离线更新见 [离线签名更新与回滚](docs/offline-updates.md)；bundle 验证见 [Linux bundle 报告](reports/linux-bundle-verification-2026-11-10.md)；系统音频探测见 [系统音频报告](reports/system-audio-capability-verification-2026-11-10.md)；物理设备检查见 [硬件验收报告](reports/physical-audio-hardware-verification-2026-11-10.md)；Windows/更新边界见 [边界验证报告](reports/windows-update-boundary-verification-2026-11-10.md)；faster-whisper 服务见 [ASR 服务报告](reports/faster-whisper-server-verification-2026-11-10.md)；运行时预检见 [ASR runtime 预检报告](reports/asr-runtime-preflight-verification-2026-11-13.md)。当前全量门禁为 148 项 Node 测试、19 项 Python ASR 测试、JavaScript 语法检查、Linux bundle 清单校验和 Debian 包解包校验；真实 Electron smoke 与生产 GPG 密钥仅在相应运行环境中验收。提交作者邮箱为 `19856850715@163.com`。
+PCM/WAV 阶段证据见 [音频阶段验证报告](reports/audio-input-verification-2026-11-10.md)；麦克风实现、测试结果和未验证范围见 [麦克风阶段验证报告](reports/microphone-verification-2026-11-10.md)；可选 ASR 适配器见 [本地 ASR 验证报告](reports/local-asr-adapter-verification-2026-11-10.md)；ASR 生命周期见 [ASR supervisor 验证报告](reports/asr-supervisor-verification-2026-11-13.md)；离线更新见 [离线签名更新与回滚](docs/offline-updates.md)；会话备份见 [本地会话备份](docs/session-backup.md)；会话备份证据见 [备份验证报告](reports/session-backup-verification-2026-11-15.md)；bundle 验证见 [Linux bundle 报告](reports/linux-bundle-verification-2026-11-10.md)；系统音频探测见 [系统音频报告](reports/system-audio-capability-verification-2026-11-10.md)；物理设备检查见 [硬件验收报告](reports/physical-audio-hardware-verification-2026-11-10.md)；Windows/更新边界见 [边界验证报告](reports/windows-update-boundary-verification-2026-11-10.md)；faster-whisper 服务见 [ASR 服务报告](reports/faster-whisper-server-verification-2026-11-10.md)；运行时预检见 [ASR runtime 预检报告](reports/asr-runtime-preflight-verification-2026-11-13.md)。当前全量门禁为 152 项 Node 测试、19 项 Python ASR 测试、JavaScript 语法检查、Linux bundle 清单校验和 Debian 包解包校验；真实 Electron smoke 与生产 GPG 密钥仅在相应运行环境中验收。提交作者邮箱为 `19856850715@163.com`。

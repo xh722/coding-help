@@ -5,7 +5,7 @@ const SCHEMAS = Object.freeze({
   'auth.login': { required: ['email', 'password'], fields: { email: 'string', password: 'string' } },
   'auth.logout': { required: [], fields: {} }, 'auth.get-session': { required: [], fields: {} },
   'session.start': { required: ['title'], fields: { title: 'string', language: 'string', notes: 'string' } },
-  'session.pause': { required: [], fields: {} }, 'session.resume': { required: [], fields: {} }, 'session.stop': { required: [], fields: {} }, 'session.get-current': { required: [], fields: {} }, 'session.list': { required: [], fields: {} }, 'session.delete': { required: ['id'], fields: { id: 'string' } },
+  'session.pause': { required: [], fields: {} }, 'session.resume': { required: [], fields: {} }, 'session.stop': { required: [], fields: {} }, 'session.get-current': { required: [], fields: {} }, 'session.list': { required: [], fields: {} }, 'session.delete': { required: ['id'], fields: { id: 'string' } }, 'session.export': { required: [], fields: {} },
   'capture.get-displays': { required: [], fields: {} }, 'capture.take-screenshot': { required: [], fields: { displayId: 'string' } },
   'audio.select-file': { required: [], fields: {} }, 'audio.use-demo': { required: [], fields: {} }, 'audio.get-status': { required: [], fields: {} },
   'audio.use-microphone': { required: [], fields: {} },

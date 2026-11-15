@@ -5,6 +5,7 @@ const http = require('node:http');
 const { randomUUID } = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
+const { createBackupDocument } = require('../../packages/core/backup.cjs');
 
 const DEMO_EMAIL = 'local-dev@example.com';
 const DEMO_PASSWORD = 'local-dev-password';
@@ -139,6 +140,10 @@ function createLocalApi({ host = '127.0.0.1', port = 0, clock = () => Date.now()
     if (req.method === 'GET' && url.pathname === '/sessions') {
       if (!requireAuth(req, res)) return;
       return json(res, 200, [...sessions.values()].map((session) => structuredClone(session)));
+    }
+    if (req.method === 'GET' && url.pathname === '/backup') {
+      if (!requireAuth(req, res)) return;
+      return json(res, 200, createBackupDocument([...sessions.values()], { exportedAt: new Date(clock()).toISOString() }));
     }
     if (req.method === 'POST' && url.pathname === '/sessions') {
       if (!requireAuth(req, res)) return;

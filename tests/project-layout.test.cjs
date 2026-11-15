@@ -8,6 +8,7 @@ test('repository exposes the local rebuild entry points', () => {
     'apps/desktop/main/index.cjs',
     'apps/desktop/preload/index.cjs',
     'services/local-api/server.cjs',
+    'packages/core/backup.cjs',
   ]) {
     assert.equal(fs.existsSync(path.join(__dirname, '..', relative)), true, relative);
   }

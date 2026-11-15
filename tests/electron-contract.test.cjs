@@ -251,3 +251,14 @@ test('main exposes session deletion through IPC', async () => {
   assert.deepEqual(result, { ok: true });
   assert.deepEqual(deleted, { token: 'access-1', id: 'saved-1' });
 });
+
+test('main exposes a sanitized session backup through IPC', async () => {
+  const { createAppDependencies } = require('../apps/desktop/main/index.cjs');
+  const backup = { format: 'coding-help-session-backup', schemaVersion: 1, product: 'interviewcoder-local-rebuild', exportedAt: '2026-11-15T00:00:00.000Z', sessions: [] };
+  const deps = createAppDependencies({
+    auth: { getSession: () => ({ accessToken: 'access-1' }) },
+    sessionApi: { backup: async (token) => ({ ...backup, token }) },
+  });
+  const result = await deps.router.dispatch('session.export', {}, { source: 'renderer', windowId: 1 });
+  assert.deepEqual(result, backup);
+});

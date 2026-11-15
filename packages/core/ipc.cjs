@@ -2,7 +2,7 @@
 
 const COMMANDS = Object.freeze([
   'auth.login', 'auth.logout', 'auth.get-session',
-  'session.start', 'session.pause', 'session.resume', 'session.stop', 'session.get-current', 'session.list', 'session.delete',
+  'session.start', 'session.pause', 'session.resume', 'session.stop', 'session.get-current', 'session.list', 'session.delete', 'session.export',
   'capture.get-displays', 'capture.take-screenshot',
   'audio.select-file', 'audio.use-demo', 'audio.get-status', 'audio.use-microphone',
   'audio.microphone-ready', 'audio.microphone-chunk', 'audio.microphone-failed', 'audio.get-system-capabilities',
@@ -20,6 +20,7 @@ const schemas = {
   'session.get-current': { required: [], fields: {} },
   'session.list': { required: [], fields: {} },
   'session.delete': { required: ['id'], fields: { id: 'string' } },
+  'session.export': { required: [], fields: {} },
   'audio.select-file': { required: [], fields: {} },
   'audio.use-demo': { required: [], fields: {} },
   'audio.get-status': { required: [], fields: {} },

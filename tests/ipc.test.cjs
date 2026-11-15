@@ -7,7 +7,7 @@ const { COMMANDS, SCHEMAS, validateCommand, createIpcRouter } = require('../pack
 test('allowlist contains every renderer command', () => {
   assert.deepEqual(COMMANDS, [
     'auth.login', 'auth.logout', 'auth.get-session',
-    'session.start', 'session.pause', 'session.resume', 'session.stop', 'session.get-current', 'session.list', 'session.delete',
+    'session.start', 'session.pause', 'session.resume', 'session.stop', 'session.get-current', 'session.list', 'session.delete', 'session.export',
     'capture.get-displays', 'capture.take-screenshot',
     'audio.select-file', 'audio.use-demo', 'audio.get-status', 'audio.use-microphone',
     'audio.microphone-ready', 'audio.microphone-chunk', 'audio.microphone-failed', 'audio.get-system-capabilities',

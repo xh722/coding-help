@@ -168,3 +168,26 @@ test('local API deletes a persisted session', async () => {
     assert.deepEqual(listed.body, []);
   } finally { await api.stop(); }
 });
+
+test('local API exports an authenticated sanitized session backup', async () => {
+  const api = createLocalApi({ host: '127.0.0.1', port: 0, clock: () => 1700000000000 });
+  await api.start();
+  const base = `http://${api.address().host}:${api.address().port}`;
+  try {
+    const login = await request(base, '/auth/login', { method: 'POST', body: JSON.stringify({ email: 'local-dev@example.com', password: 'local-dev-password' }) });
+    const headers = { authorization: `Bearer ${login.body.accessToken}` };
+    const created = await request(base, '/sessions', { method: 'POST', headers, body: JSON.stringify({ title: 'Backup me', token: 'should-not-export' }) });
+    await request(base, `/sessions/${created.body.id}/events`, { method: 'POST', headers, body: JSON.stringify({ type: 'note', password: 'should-not-export', text: 'keep this' }) });
+    const backup = await request(base, '/backup', { headers });
+    assert.equal(backup.response.status, 200);
+    assert.deepEqual(backup.body, {
+      format: 'coding-help-session-backup',
+      schemaVersion: 1,
+      product: 'interviewcoder-local-rebuild',
+      exportedAt: '2023-11-14T22:13:20.000Z',
+      sessions: [{ id: created.body.id, metadata: { title: 'Backup me' }, createdAt: 1700000000000, events: [{ type: 'note', text: 'keep this', timestamp: 1700000000000 }] }],
+    });
+    const unauthorized = await request(base, '/backup');
+    assert.equal(unauthorized.response.status, 401);
+  } finally { await api.stop(); }
+});
