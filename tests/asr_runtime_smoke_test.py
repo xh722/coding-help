@@ -44,7 +44,6 @@ class AsrRuntimeSmokeTests(unittest.TestCase):
     def test_run_smoke_starts_loopback_service_and_reports_safe_probe(self):
         process = FakeProcess()
         requests = []
-
         def requester(host, port, method, body=None, timeout=0):
             requests.append((host, port, method, body, timeout))
             if method == "GET":
@@ -62,6 +61,7 @@ class AsrRuntimeSmokeTests(unittest.TestCase):
             result = smoke.run_smoke(
                 "tiny",
                 audio_path=str(audio_path),
+                vad_filter=False,
                 popen_factory=lambda *args, **kwargs: process,
                 requester=requester,
                 port_allocator=lambda _host: 43210,
@@ -73,6 +73,10 @@ class AsrRuntimeSmokeTests(unittest.TestCase):
         self.assertNotIn("secret transcript", json.dumps(result))
         self.assertEqual([request[2] for request in requests], ["GET", "POST"])
         self.assertTrue(process.terminated)
+
+    def test_smoke_command_can_disable_vad_filter(self):
+        command = smoke.build_command("127.0.0.1", 43210, "tiny", "cpu", "int8", 4, False, vad_filter=False)
+        self.assertEqual(command[-1], "--no-vad-filter")
 
     def test_run_smoke_rejects_external_bind_target(self):
         with self.assertRaises(smoke.SmokeError) as context:

@@ -195,7 +195,9 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_json(400, {"error": "invalid PCM WAV input"})
                 return
             try:
-                segments, info = self.server.model.transcribe(io.BytesIO(body), beam_size=5, vad_filter=True)
+                segments, info = self.server.model.transcribe(
+                    io.BytesIO(body), beam_size=5, vad_filter=self.server.vad_filter
+                )
                 parts, length = [], 0
                 for segment in segments:
                     part = segment.text.strip()
@@ -213,7 +215,7 @@ class Handler(BaseHTTPRequestHandler):
             self.server.inference_lock.release()
 
 
-def create_server(host: str, port: int, model_name: str | None, device: str, compute_type: str, allow_download: bool, cpu_threads: int = 4, *, max_handlers: int = 4, request_timeout: float = 10) -> ThreadingHTTPServer:
+def create_server(host: str, port: int, model_name: str | None, device: str, compute_type: str, allow_download: bool, cpu_threads: int = 4, *, vad_filter: bool = True, max_handlers: int = 4, request_timeout: float = 10) -> ThreadingHTTPServer:
     if host not in ("127.0.0.1", "localhost", "::1"):
         raise ValueError("host must be a loopback address")
     if not 1 <= max_handlers <= 32 or request_timeout <= 0 or cpu_threads < 1:
@@ -221,6 +223,7 @@ def create_server(host: str, port: int, model_name: str | None, device: str, com
     host = "127.0.0.1" if host == "localhost" else host
     server_class = IPv6HTTPServer if host == "::1" else BoundedHTTPServer
     server = server_class((host, port), Handler, max_handlers=max_handlers, request_timeout=request_timeout)
+    server.vad_filter = vad_filter
     try:
         server.model = load_model(model_name, device, compute_type, allow_download, cpu_threads)
         server.model_error = None
@@ -238,13 +241,14 @@ def main() -> int:
     parser.add_argument("--device", default=os.environ.get("WHISPER_DEVICE", "cpu"))
     parser.add_argument("--compute-type", default=os.environ.get("WHISPER_COMPUTE_TYPE", "int8"))
     parser.add_argument("--allow-model-download", action="store_true", help="allow faster-whisper to download a named model")
+    parser.add_argument("--no-vad-filter", action="store_true", help="disable VAD filtering for speech samples that lose words at segment boundaries")
     parser.add_argument("--cpu-threads", type=int, default=4)
     args = parser.parse_args()
     if args.host not in ("127.0.0.1", "localhost", "::1"):
         parser.error("--host must be a loopback address")
     if args.cpu_threads < 1:
         parser.error("--cpu-threads must be positive")
-    server = create_server(args.host, args.port, args.model, args.device, args.compute_type, args.allow_model_download, args.cpu_threads)
+    server = create_server(args.host, args.port, args.model, args.device, args.compute_type, args.allow_model_download, args.cpu_threads, vad_filter=not args.no_vad_filter)
 
     def stop(_signum: int, _frame: Any) -> None:
         threading.Thread(target=server.shutdown, daemon=True).start()

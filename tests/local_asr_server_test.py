@@ -29,10 +29,11 @@ def wav_bytes() -> bytes:
 
 class FakeModel:
     def __init__(self, texts=(" hello ", "world")):
-        self.texts = texts; self.audio = None
+        self.texts = texts; self.audio = None; self.kwargs = None
 
-    def transcribe(self, audio, **_kwargs):
+    def transcribe(self, audio, **kwargs):
         self.audio = audio
+        self.kwargs = kwargs
         return (types.SimpleNamespace(text=text) for text in self.texts), types.SimpleNamespace(language="en")
 
 
@@ -120,8 +121,15 @@ class LocalAsrServerTests(unittest.TestCase):
             self.assertEqual(request(httpd, "GET", path="/healthz")[0], 200)
             status, payload = request(httpd)
         self.assertEqual(status, 200); self.assertEqual(payload["text"], "hello world"); self.assertIsInstance(model.audio, io.BytesIO)
+        self.assertEqual(model.kwargs, {"beam_size": 5, "vad_filter": True})
         with running_server(FakeModel(())) as httpd:
             self.assertEqual(request(httpd)[1]["text"], "")
+
+    def test_vad_filter_can_be_disabled_for_speech_samples(self):
+        model = FakeModel()
+        with running_server(model, vad_filter=False) as httpd:
+            self.assertEqual(request(httpd)[0], 200)
+        self.assertEqual(model.kwargs, {"beam_size": 5, "vad_filter": False})
 
     def test_invalid_content_and_model_errors_have_fixed_responses(self):
         with running_server() as httpd:

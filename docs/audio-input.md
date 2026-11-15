@@ -62,6 +62,7 @@ WHISPER_MODEL=/path/to/model npm run asr:doctor -- --audio /path/to/sample.wav -
 WHISPER_MODEL=/path/to/model npm run asr:doctor -- --audio /path/to/sample.wav --repeat 3 --json
 WHISPER_MODEL=/path/to/model npm run asr:doctor -- --audio /path/to/sample.wav --expected-file /path/to/reference.txt --json
 WHISPER_MODEL=/path/to/model npm run asr:smoke -- --json
+WHISPER_MODEL=/path/to/model npm run asr:smoke -- --audio /path/to/sample.wav --no-vad-filter --json
 ```
 
 诊断报告只输出 provider、依赖版本、模型来源、加载耗时、音频格式、语言、推理耗时、转写字符数，以及进程 CPU 用户/系统耗时和峰值 RSS 内存，不输出原始转写文本或音频内容；`--audio` 仍只接受整数 PCM WAV。`--repeat N` 会重复音频推理并在 JSON 中报告平均、最小、P95 和运行次数，默认只运行一次。传入 `--expected-text` 或 UTF-8 的 `--expected-file` 后，报告还会给出首轮推理的 CER/WER 和参考/假设文本计数；工具会统一大小写和空白，但不会打印参考文本或模型转写。命名模型下载需要同时传 `--allow-model-download`，默认保持离线。资源指标在当前平台可用时报告，否则标记为不可用。
@@ -81,7 +82,7 @@ npm start
 
 配置 supervisor 后，点击 **Start** 前必须先通过健康检查；服务无法启动时会保持 idle 并显示固定的本地服务不可用错误，不会伪造转写结果。`audio.get-status` 会额外返回 `asrService` 的 `state`、进程号和尝试次数，但不会返回命令、模型路径、响应正文或异常文本。未设置 `CODING_HELP_ASR_COMMAND` 时仍使用原来的外部 loopback 服务或演示模式。
 
-服务默认使用 CPU `int8` 和 4 个 CPU 线程，只监听 loopback；也可设置 `WHISPER_DEVICE`、`WHISPER_COMPUTE_TYPE`。服务严格校验 PCM WAV 和 `Content-Length`，限制并发与推理资源。模型路径缺失、依赖未安装或模型加载失败时服务仍可启动用于 `/healthz` 诊断，但返回 503，不会返回固定文本或伪造识别。需要允许下载命名模型时显式传 `--allow-model-download`，仓库不会替用户下载模型。
+服务默认使用 CPU `int8`、4 个 CPU 线程和 VAD 过滤，只监听 loopback；也可设置 `WHISPER_DEVICE`、`WHISPER_COMPUTE_TYPE`。对语音样本如果发现分段边界吞字，可显式给服务传 `--no-vad-filter`，默认行为保持不变。服务严格校验 PCM WAV 和 `Content-Length`，限制并发与推理资源。模型路径缺失、依赖未安装或模型加载失败时服务仍可启动用于 `/healthz` 诊断，但返回 503，不会返回固定文本或伪造识别。需要允许下载命名模型时显式传 `--allow-model-download`，仓库不会替用户下载模型。
 
 ## 使用麦克风
 

@@ -112,6 +112,7 @@ def build_command(
     compute_type: str,
     cpu_threads: int,
     allow_download: bool,
+    vad_filter: bool = True,
 ) -> list[str]:
     command = [
         sys.executable,
@@ -131,6 +132,8 @@ def build_command(
         command.extend(("--model", model_name))
     if allow_download:
         command.append("--allow-model-download")
+    if not vad_filter:
+        command.append("--no-vad-filter")
     return command
 
 
@@ -157,6 +160,7 @@ def run_smoke(
     compute_type: str = "int8",
     cpu_threads: int = 4,
     allow_download: bool = False,
+    vad_filter: bool = True,
     timeout: float = 30.0,
     popen_factory: Callable[..., Any] = subprocess.Popen,
     requester: Callable[..., tuple[int, dict[str, Any]]] = _request_json,
@@ -179,7 +183,7 @@ def run_smoke(
         port = port_allocator(host)
     except OSError as error:
         raise SmokeError("local ASR service could not allocate a port") from error
-    command = build_command(host, port, model_name, device, compute_type, cpu_threads, allow_download)
+    command = build_command(host, port, model_name, device, compute_type, cpu_threads, allow_download, vad_filter)
     try:
         process = popen_factory(command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, text=True)
     except OSError as error:
@@ -227,6 +231,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--cpu-threads", type=int, default=4)
     parser.add_argument("--timeout", type=float, default=30.0)
     parser.add_argument("--allow-model-download", action="store_true", help="allow a named model to be downloaded")
+    parser.add_argument("--no-vad-filter", action="store_true", help="disable VAD filtering for speech samples that lose words at segment boundaries")
     parser.add_argument("--json", action="store_true", dest="json_output", help="print a machine-readable JSON report")
     args = parser.parse_args(argv)
     try:
@@ -238,6 +243,7 @@ def main(argv: list[str] | None = None) -> int:
             compute_type=args.compute_type,
             cpu_threads=args.cpu_threads,
             allow_download=args.allow_model_download,
+            vad_filter=not args.no_vad_filter,
             timeout=args.timeout,
         )
     except SmokeError as error:
