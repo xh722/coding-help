@@ -13,6 +13,8 @@ test('permission request and check deny all but expected Dashboard audio from it
   const ask = (contents = sender, permission = 'media', d = details) => { let result; request(contents, permission, (allowed) => { result = allowed; }, d); return result; };
   assert.equal(ask(), false); assert.equal(check(sender, 'media', 'file://', details), false);
   expected = true; assert.equal(ask(), true); assert.equal(check(sender, 'media', 'file://', details), true);
+  assert.equal(ask(sender, 'media', { requestingUrl: url, isMainFrame: true, mediaTypes: ['audio'] }), true);
+  assert.equal(check(sender, 'media', 'file://', { requestingUrl: url, isMainFrame: true, mediaType: 'audio' }), true);
   for (const d of [{ ...details, isMainFrame: false }, { ...details, requestingUrl: 'https://untrusted.invalid/' }, { ...details, mediaTypes: ['audio', 'video'], mediaType: 'video' }, { ...details, mediaTypes: [], mediaType: 'unknown' }, {}]) {
     assert.equal(ask(sender, 'media', d), false); assert.equal(check(sender, 'media', 'file://', d), false);
   }

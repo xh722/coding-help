@@ -9,13 +9,16 @@ function installMediaPermissions({ session, getDashboard, dashboardUrl, isExpect
       details?.isMainFrame === true && details.requestingUrl === dashboardUrl);
   }
   const expected = (kind) => typeof isExpected === 'function' && isExpected(kind);
-  const allowMediaAudio = (contents, details) => details?.mediaType === 'audio' && trusted(contents, details) && expected('microphone');
+  const isAudioOnly = (details) => Array.isArray(details?.mediaTypes)
+    ? details.mediaTypes.length === 1 && details.mediaTypes[0] === 'audio'
+    : details?.mediaType === 'audio';
+  const allowMediaAudio = (contents, details) => isAudioOnly(details) && trusted(contents, details) && expected('microphone');
   const allowDisplayCapture = (contents, details) => trusted(contents, details) && expected('system') &&
     (details?.mediaType === 'video' || !Array.isArray(details?.mediaTypes) || details.mediaTypes.includes('video'));
   session.setPermissionCheckHandler((contents, permission, _origin, details) =>
     (permission === 'media' && allowMediaAudio(contents, details)) || (permission === 'display-capture' && allowDisplayCapture(contents, details)));
   session.setPermissionRequestHandler((contents, permission, callback, details) => {
-    callback((permission === 'media' && details?.mediaTypes?.length === 1 && details.mediaTypes[0] === 'audio' && allowMediaAudio(contents, details)) ||
+    callback((permission === 'media' && allowMediaAudio(contents, details)) ||
       (permission === 'display-capture' && allowDisplayCapture(contents, details)));
   });
 }
