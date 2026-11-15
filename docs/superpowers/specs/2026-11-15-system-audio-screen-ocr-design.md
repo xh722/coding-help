@@ -17,7 +17,7 @@
 
 ### 屏幕 OCR
 
-第一版采用按需截图 + 本地 OCR：用户点击“识别屏幕”后只执行一次截图和一次 OCR。第一版只返回纯文本和状态，不做连续采集、视觉问答、代码理解或云端视觉模型调用。
+第一版采用快捷键触发的全屏截图 + 本地 OCR：注册 `CommandOrControl+Shift+O` 后，用户按下快捷键只执行一次主显示器全屏截图和一次 OCR。截图只在主进程内存中流转，不更新现有截图预览、不弹出截图窗口、不写入会话历史；第一版只返回 OCR 纯文本和状态，不做连续采集、视觉问答、代码理解或云端视觉模型调用。
 
 当前已有显示器枚举和 PNG 截图预览；新能力复用该截图源，不重复实现显示器访问。
 
@@ -51,7 +51,7 @@ ocr({ png, language }) ->
 
 默认适配器调用本机 `tesseract`，使用固定 argv、无 shell、stdin 输入和 stdout 输出；默认语言为 `chi_sim+eng`，语言参数只接受受限字符集。输入和输出分别设置大小上限和超时。没有 `tesseract` 或中文语言包时只返回 `OCR_UNAVAILABLE`，不把截图内容放进错误信息。
 
-主进程新增 `capture.ocr-screen`，只接受 `displayId`。主进程先通过现有截图 provider 得到 PNG，再调用 OCR provider；renderer 只能收到文本长度、语言、状态和 OCR 文本，不收到命令、模型路径或本地文件路径。OCR 文本不写入 session history，除非后续另行设计用户主动保存功能。
+主进程新增无 payload 的 `capture.ocr-screen`；全局快捷键处理器和 Dashboard 按钮都调用同一 handler，由主进程选择 `screen.getPrimaryDisplay()` 对应的 `desktopCapturer` source，不接受 renderer 自定义截图范围。主进程先通过现有截图 provider 得到 PNG，再调用 OCR provider；renderer 只能收到文本长度、语言、状态和 OCR 文本，不收到命令、模型路径或本地文件路径。OCR 文本不写入 session history，除非后续另行设计用户主动保存功能。
 
 ### 系统音频 provider
 
@@ -77,20 +77,23 @@ renderer 侧新增 `createSystemAudioCapture()`，复用麦克风采集的 Audio
 
 主进程把系统音频块送入现有 transcription provider；`audio.get-status` 增加 `source: "system-audio"` 和固定状态，不返回音频内容或设备标识。
 
-### UI
+### 快捷键与 UI
 
-Dashboard 增加两个显式操作：
+应用启动后注册 `CommandOrControl+Shift+O`，退出或注册失败时注销/报告固定状态。快捷键只在本地应用已登录且 Dashboard 主窗口仍受信任时生效；它不启动录音、不显示截图、不改变当前会话状态。
 
-- `Recognize screen`：选择显示器后执行一次截图 OCR，展示文本或固定错误。
+Dashboard 增加系统音频操作和 OCR 状态：
+
+- `Recognize screen`：显示当前快捷键状态和最近一次 OCR 文本；点击按钮也可以触发同一条主显示器全屏 OCR 路径，但不显示截图。
 - `Use system audio`：用户启动会话前选择系统源并请求权限；采集期间显示状态、块数和字节数。
 
-现有 `Take screenshot` 继续只负责预览截图。Overlay 不获得系统音频启动或 OCR 权限。会话暂停释放系统音频轨道，恢复时重新请求并生成新的 capture ID。
+现有 `Take screenshot` 继续只负责用户主动请求的预览截图，与快捷键 OCR 分开。Overlay 不获得系统音频启动或 OCR 权限。会话暂停释放系统音频轨道，恢复时重新请求并生成新的 capture ID。
 
 ## 权限与安全边界
 
 - 只有已登录 Dashboard 的主 frame 可以请求系统音频；Overlay、子 frame、外部 URL、导航后的页面和后台定时任务全部拒绝。
 - `display-capture` 权限只在用户点击系统音频操作且存在待处理请求时允许；普通页面和截图预览不自动触发权限。
-- 截图 PNG 只在主进程到 OCR provider 的内存路径中存在，不写临时文件，不上传网络，不进入 session history。
+- 截图 PNG 只在主进程到 OCR provider 的内存路径中存在，不写临时文件，不上传网络，不进入 session history，也不更新截图预览 DOM。
+- 全局快捷键只绑定本地 Electron 应用，注销发生在窗口销毁和应用退出路径；快捷键注册失败不会伪造 OCR 可用状态。
 - OCR 命令固定为无 shell 子进程；禁止 renderer 提供可执行文件路径、任意参数或 OCR 命令。
 - 音频块只在主进程内存和 ASR 请求中流转，事件只包含状态、格式、统计和固定错误码。
 - OCR 和系统音频均有输入大小、队列长度、响应长度和超时上限；超限立即终止当前操作并清理资源。
@@ -136,7 +139,7 @@ Dashboard 增加两个显式操作：
 
 ## 完成条件
 
-1. 用户可在 Dashboard 显式触发一次屏幕 OCR，缺少引擎时看到固定未验证状态。
+1. 用户可用 `CommandOrControl+Shift+O`（或 Dashboard 同一动作按钮）触发主显示器全屏 OCR；截图不会在任何应用窗口中显示，缺少引擎时看到固定未验证状态。
 2. 用户可在 Dashboard 显式选择系统音频，音频经有界 PCM 流进入现有 loopback ASR，暂停/恢复/停止和错误清理与麦克风一致。
 3. 所有新增 IPC、provider、权限和 renderer 行为有自动化测试，事件和持久化数据不包含原始截图或 PCM。
 4. README、音频指南、路线图和验证报告明确区分代码链路通过与平台硬件未验证。
