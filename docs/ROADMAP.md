@@ -7,7 +7,7 @@
 - [x] **1. 设备热插拔与选择器可靠性**：监听浏览器 `devicechange`、刷新设备名称、处理拔出中的设备并保持权限边界；合成设备和单元测试已完成。
 - [x] **2. 桌面打包与可复现发布检查**：加入 Electron runtime bundle、SHA-256 资源清单、启动检查和 Linux CI 构建产物验证；不发布原版安装器或 native 文件。
 - [x] **3. 系统音频能力探测**：探测当前平台是否提供回放采集，明确潜在路径、拒绝原因和 UI 状态；没有平台实现时保持安全的不可用结果。实际采集仍待平台验收。
-- [ ] **4. 具体本地 ASR 模型服务**：在用户授权并部署 Whisper/Vosk 等模型服务后，接入已完成的 loopback 协议并验证语言、延迟和错误恢复；`faster-whisper tiny` 的模型加载、健康检查和静音推理已在隔离环境通过，真实语音质量和官方模型源可达性仍未验证。
+- [ ] **4. 具体本地 ASR 模型服务**：在用户授权并部署 Whisper/Vosk 等模型服务后，接入已完成的 loopback 协议并验证语言、延迟和错误恢复；`faster-whisper tiny` 已用一份授权中文 WAV 完成真实模型和 loopback 验证，但该样本 CER `0.5789`、WER `3.0`，识别质量和多样本稳定性仍未通过。
 - [ ] **5. 真实硬件验收**：在授权 Linux/Windows/macOS 设备验证权限、设备切换、拔插、暂停恢复和长时间运行。
 - [ ] **6. Windows 动态行为对照**：使用授权 Windows 虚拟机运行原版 preflight，记录 agent、采集和网络边界；当前环境跳过。
 - [x] **7. 离线更新适配器**：本地 manifest、GPG detached signature、归档哈希、tar 路径检查、原子 current/previous 切换和 rollback 已完成；原版更新服务器兼容仍待动态证据。
@@ -74,8 +74,8 @@
 - [x] 可选 `faster-whisper` loopback 服务骨架、模型缺失 503、WAV 校验和 CPU/int8 配置；实际模型部署和准确率验收仍未完成。
 - [x] ASR runtime 预检：模型和依赖缺失时返回明确的未验证状态，成功加载本地模型才返回通过；实际语音质量验收仍未完成。
 - [x] ASR runtime 预检下载边界：`--allow-model-download` 只对命名模型开启下载，默认路径和已有本地目录保持离线加载；下载失败仍返回退出码 2。
-- [x] ASR runtime 实际 smoke：`asr:smoke` 可启动隔离 Python 环境中的 `faster-whisper tiny`，验证 loopback `/healthz`、静音 `/transcribe` 和退出清理；真实语音样本仍待授权环境。
-- [x] ASR runtime doctor：提供依赖/模型诊断、可选 PCM WAV 重复推理统计、进程 CPU/峰值 RSS 资源指标、参考文本 CER/WER 和 JSON 报告；不输出原始转写文本，真实语音样本质量仍待授权环境。
+- [x] ASR runtime 实际 smoke：`asr:smoke` 可启动隔离 Python 环境中的 `faster-whisper tiny`，验证 loopback `/healthz`、静音和授权语音 `/transcribe` 以及退出清理；多样本识别质量仍待完成。
+- [x] ASR runtime doctor：提供依赖/模型诊断、可选 PCM WAV 重复推理统计、进程 CPU/峰值 RSS 资源指标、参考文本 CER/WER 和 JSON 报告；不输出原始转写文本，已有一例授权语音指标，质量门槛和多样本稳定性仍待完成。
 - [x] Linux bundle 发布门禁：CI 可锁定来源提交 SHA，清单不匹配时拒绝验收；签名、更新下载和回滚仍未实现。
 - [x] Debian x64 可安装包：`build:deb`/`check:deb` 验证包元数据、启动器、桌面入口和内部 bundle 清单。
 - [x] 物理硬件只读预检：`audio:preflight` 检查 `/dev/snd`、ALSA、PulseAudio 和显示环境，不打开录音流；当前容器无可用设备，物理验收仍阻塞。
