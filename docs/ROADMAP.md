@@ -75,6 +75,7 @@
 - [x] ASR runtime 预检：模型和依赖缺失时返回明确的未验证状态，成功加载本地模型才返回通过；实际语音质量验收仍未完成。
 - [x] ASR runtime 预检下载边界：`--allow-model-download` 只对命名模型开启下载，默认路径和已有本地目录保持离线加载；下载失败仍返回退出码 2。
 - [x] ASR runtime 实际 smoke：隔离 Python 环境加载 `faster-whisper tiny`，loopback `/healthz` 和静音 `/transcribe` 均通过；真实语音样本仍待授权环境。
+- [x] ASR runtime doctor：提供依赖/模型诊断、可选 PCM WAV 推理耗时和 JSON 报告；不输出原始转写文本，真实语音样本质量仍待授权环境。
 - [x] Linux bundle 发布门禁：CI 可锁定来源提交 SHA，清单不匹配时拒绝验收；签名、更新下载和回滚仍未实现。
 - [x] Debian x64 可安装包：`build:deb`/`check:deb` 验证包元数据、启动器、桌面入口和内部 bundle 清单。
 - [x] 物理硬件只读预检：确认当前容器无 `/dev/snd`、无 ALSA 声卡和不可用 PulseAudio；物理验收仍阻塞。

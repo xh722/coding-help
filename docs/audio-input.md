@@ -53,6 +53,16 @@ WHISPER_MODEL=tiny npm run asr:preflight -- --allow-model-download
 
 只有同时传入 `--allow-model-download` 时才会尝试下载命名模型；已有本地模型目录即使带上该开关仍使用 `local_files_only=True`。网络失败、模型缺失或依赖不完整统一返回退出码 2，并输出 `NOT VERIFIED`。模型下载缓存由 `huggingface-hub` 管理，建议在验证时设置 `HF_HOME` 到用户明确选择的目录。
 
+需要记录加载和推理耗时时，可以运行本地诊断命令：
+
+```bash
+source /path/to/venv/bin/activate
+WHISPER_MODEL=/path/to/model npm run asr:doctor
+WHISPER_MODEL=/path/to/model npm run asr:doctor -- --audio /path/to/sample.wav --json
+```
+
+诊断报告只输出 provider、依赖版本、模型来源、加载耗时、音频格式、语言、推理耗时和转写字符数，不输出原始转写文本或音频内容；`--audio` 仍只接受整数 PCM WAV。命名模型下载需要同时传 `--allow-model-download`，默认保持离线。
+
 如果希望桌面应用负责服务生命周期，可以额外提供命令的 JSON argv 数组。应用只会调用数组中的第一个元素和参数，不经过 shell；启动前会轮询 loopback `/healthz`，失败时最多重试，退出应用时发送 `SIGTERM` 并在超时后清理子进程：
 
 ```bash

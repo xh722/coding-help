@@ -29,6 +29,8 @@ jobs:
         run: npm run test:asr-server
       - name: Check optional ASR runtime preflight
         run: npm run test:asr-runtime
+      - name: Check ASR runtime doctor contracts
+        run: npm run test:asr-doctor
       - name: Check syntax
         run: npm run check
       - name: Check whitespace
