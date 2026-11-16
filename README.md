@@ -157,7 +157,7 @@ npm test
 - 屏幕 OCR 和系统音频的 provider、IPC、权限门控、全屏主屏选择、视频轨道释放、PCM 队列和静态错误码有独立自动化测试；`npm run ocr:preflight -- --json` 只读检查 Tesseract 与 `chi_sim`/`eng` 语言包，不读取屏幕或联网；本机实际运行仍需要 Tesseract、桌面服务、PipeWire 和对应系统权限。
 - loopback ASR 地址校验、PCM WAV 封装、返回文本校验、超时、停止取消、请求上限和错误脱敏。
 
-`npm run smoke` 使用真实 Electron 运行桌面流程（需要显示服务；无显示器的 Linux 使用 `xvfb-run -a npm run smoke`）。文件选择器返回合成 WAV；麦克风由 Chromium 合成媒体设备提供，经过真实 AudioWorklet、Preload 和主进程验证。覆盖采集、暂停释放、恢复重连、停止、刷新、退出登录，以及摄像头/Overlay/非采集状态拒绝。不录制物理麦克风，不跳过权限处理。系统音频需要真实桌面回放和平台权限，OCR 需要 `tesseract` 及 `chi_sim`/`eng` 数据，自动化测试不会伪造这两类硬件/可执行文件。
+`npm run smoke` 使用真实 Electron 运行桌面流程（需要显示服务；无显示器的 Linux 使用 `xvfb-run -a npm run smoke`）。命令必须从仓库根目录执行；如果当前终端不在仓库目录，使用 `npm --prefix /path/to/coding-help run smoke`。文件选择器返回合成 WAV；麦克风由 Chromium 合成媒体设备提供，经过真实 AudioWorklet、Preload 和主进程验证。覆盖采集、暂停释放、恢复重连、停止、刷新、退出登录，以及摄像头/Overlay/非采集状态拒绝。不录制物理麦克风，不跳过权限处理。系统音频需要真实桌面回放和平台权限，OCR 需要 `tesseract` 及 `chi_sim`/`eng` 数据，自动化测试不会伪造这两类硬件/可执行文件。
 
 语法检查：
 
