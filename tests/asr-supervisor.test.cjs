@@ -3,7 +3,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { EventEmitter } = require('node:events');
-const { createAsrSupervisor, parseAsrCommand } = require('../packages/providers/asr-supervisor.cjs');
+const { createAsrSupervisor, parseAsrCommand, prepareAsrCommand } = require('../packages/providers/asr-supervisor.cjs');
 
 function childProcess() {
   const child = new EventEmitter();
@@ -90,4 +90,13 @@ test('environment command parser accepts only a JSON argv array', () => {
   assert.equal(parseAsrCommand('python3 server.py'), null);
   assert.equal(parseAsrCommand('{"file":"python3"}'), null);
   assert.equal(parseAsrCommand('["python3",""]'), null);
+});
+
+test('VAD override applies only to the bundled faster-whisper server command', () => {
+  const root = '/repo';
+  const bundled = ['python3', 'services/local-asr/faster_whisper_server.py'];
+  assert.deepEqual(prepareAsrCommand(bundled, { repositoryRoot: root, serverPath: `${root}/services/local-asr/faster_whisper_server.py` }), bundled);
+  assert.deepEqual(prepareAsrCommand(bundled, { noVadFilter: true, repositoryRoot: root, serverPath: `${root}/services/local-asr/faster_whisper_server.py` }), [...bundled, '--no-vad-filter']);
+  assert.deepEqual(prepareAsrCommand([...bundled, '--no-vad-filter'], { noVadFilter: true, repositoryRoot: root, serverPath: `${root}/services/local-asr/faster_whisper_server.py` }), [...bundled, '--no-vad-filter']);
+  assert.deepEqual(prepareAsrCommand(['python3', '/tmp/faster_whisper_server.py'], { noVadFilter: true, repositoryRoot: root, serverPath: `${root}/services/local-asr/faster_whisper_server.py` }), ['python3', '/tmp/faster_whisper_server.py']);
 });

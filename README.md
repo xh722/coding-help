@@ -117,6 +117,8 @@ Debian 包把完整 bundle 安装到 `/opt/interviewcoder-local-rebuild`，并�
 ```bash
 export CODING_HELP_TRANSCRIPTION_URL=http://127.0.0.1:43123/transcribe
 export CODING_HELP_ASR_COMMAND='["python3","services/local-asr/faster_whisper_server.py"]'
+# 可选：语音分段吞字时关闭仓库服务的 VAD 过滤
+export CODING_HELP_ASR_NO_VAD_FILTER=1
 npm start
 ```
 

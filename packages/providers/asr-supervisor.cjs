@@ -1,6 +1,7 @@
 'use strict';
 
 const { spawn } = require('node:child_process');
+const path = require('node:path');
 const { isLoopbackEndpoint } = require('./transcription-http.cjs');
 
 const DEFAULT_STARTUP_TIMEOUT_MS = 15000;
@@ -40,6 +41,19 @@ function parseAsrCommand(value) {
   } catch {
     return null;
   }
+}
+
+function prepareAsrCommand(command, { noVadFilter = false, repositoryRoot, serverPath } = {}) {
+  if (command == null) return null;
+  const validated = validateCommand(command);
+  if (!validated || !noVadFilter || typeof repositoryRoot !== 'string' || typeof serverPath !== 'string') return validated;
+  const bundledServer = path.normalize(serverPath);
+  const containsBundledServer = validated.some((part) => {
+    const resolved = path.isAbsolute(part) ? path.normalize(part) : path.resolve(repositoryRoot, part);
+    return resolved === bundledServer;
+  });
+  if (!containsBundledServer || validated.includes('--no-vad-filter')) return validated;
+  return [...validated, '--no-vad-filter'];
 }
 
 function createAsrSupervisor({
@@ -174,4 +188,4 @@ function createAsrSupervisor({
   return Object.freeze({ ensureReady, stop, getStatus: snapshot, getEndpoint: () => url });
 }
 
-module.exports = { createAsrSupervisor, AsrSupervisorError, healthEndpoint, parseAsrCommand };
+module.exports = { createAsrSupervisor, AsrSupervisorError, healthEndpoint, parseAsrCommand, prepareAsrCommand };

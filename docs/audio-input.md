@@ -77,10 +77,14 @@ WHISPER_MODEL=/path/to/model npm run asr:smoke -- --audio /path/to/sample.wav --
 export CODING_HELP_TRANSCRIPTION_URL=http://127.0.0.1:43123/transcribe
 export CODING_HELP_ASR_COMMAND='["python3","services/local-asr/faster_whisper_server.py"]'
 export WHISPER_MODEL=/path/to/model
+# 可选：语音分段吞字时关闭仓库服务的 VAD 过滤
+export CODING_HELP_ASR_NO_VAD_FILTER=1
 npm start
 ```
 
 配置 supervisor 后，点击 **Start** 前必须先通过健康检查；服务无法启动时会保持 idle 并显示固定的本地服务不可用错误，不会伪造转写结果。`audio.get-status` 会额外返回 `asrService` 的 `state`、进程号和尝试次数，但不会返回命令、模型路径、响应正文或异常文本。未设置 `CODING_HELP_ASR_COMMAND` 时仍使用原来的外部 loopback 服务或演示模式。
+
+`CODING_HELP_ASR_NO_VAD_FILTER=1` 只会在命令参数包含当前仓库的 `services/local-asr/faster_whisper_server.py` 时追加 `--no-vad-filter`；自定义外部命令保持原样，避免应用擅自改写第三方服务参数。
 
 服务默认使用 CPU `int8`、4 个 CPU 线程和 VAD 过滤，只监听 loopback；也可设置 `WHISPER_DEVICE`、`WHISPER_COMPUTE_TYPE`。对语音样本如果发现分段边界吞字，可显式给服务传 `--no-vad-filter`，默认行为保持不变。服务严格校验 PCM WAV 和 `Content-Length`，限制并发与推理资源。模型路径缺失、依赖未安装或模型加载失败时服务仍可启动用于 `/healthz` 诊断，但返回 503，不会返回固定文本或伪造识别。需要允许下载命名模型时显式传 `--allow-model-download`，仓库不会替用户下载模型。
 

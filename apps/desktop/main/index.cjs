@@ -12,7 +12,7 @@ const { createCaptureProvider } = require('../../../packages/providers/capture.c
 const { createAudioCaptureProvider, readWavFile, validateWavCapture } = require('../../../packages/providers/audio.cjs');
 const { createMicrophoneProvider } = require('../../../packages/providers/microphone.cjs');
 const { createLocalHttpTranscriptionProvider } = require('../../../packages/providers/transcription-http.cjs');
-const { createAsrSupervisor, parseAsrCommand } = require('../../../packages/providers/asr-supervisor.cjs');
+const { createAsrSupervisor, parseAsrCommand, prepareAsrCommand } = require('../../../packages/providers/asr-supervisor.cjs');
 const { createSystemAudioCapabilityProvider, createSystemAudioProvider } = require('../../../packages/providers/system-audio.cjs');
 const { createScreenOcrProvider } = require('../../../packages/providers/screen-ocr.cjs');
 const { installMediaPermissions } = require('./media-permissions.cjs');
@@ -120,7 +120,12 @@ function createAppDependencies(options = {}) {
   let transcriptionConfigError = null;
   const configuredEndpoint = options.transcriptionEndpoint ?? process.env.CODING_HELP_TRANSCRIPTION_URL;
   let asrSupervisor = options.asrSupervisor || null;
-  const configuredAsrCommand = options.asrCommand || parseAsrCommand(process.env.CODING_HELP_ASR_COMMAND);
+  const rawAsrCommand = options.asrCommand || parseAsrCommand(process.env.CODING_HELP_ASR_COMMAND);
+  const configuredAsrCommand = prepareAsrCommand(rawAsrCommand, {
+    noVadFilter: options.asrNoVadFilter ?? process.env.CODING_HELP_ASR_NO_VAD_FILTER === '1',
+    repositoryRoot: options.asrRepositoryRoot || path.resolve(__dirname, '../../..'),
+    serverPath: options.asrServerPath || path.resolve(__dirname, '../../../services/local-asr/faster_whisper_server.py'),
+  });
   if (!asrSupervisor && configuredEndpoint && configuredAsrCommand) {
     try {
       asrSupervisor = createAsrSupervisor({ endpoint: configuredEndpoint, command: configuredAsrCommand, fetchImpl: options.asrHealthFetch || options.transcriptionFetch || globalThis.fetch, startupTimeoutMs: options.asrStartupTimeoutMs, healthIntervalMs: options.asrHealthIntervalMs, terminateTimeoutMs: options.asrTerminateTimeoutMs, maxRetries: options.asrMaxRetries });
