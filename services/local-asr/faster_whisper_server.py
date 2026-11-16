@@ -24,10 +24,19 @@ MAX_PCM_BYTES = 32 * 1024 * 1024
 MAX_BODY_BYTES = MAX_PCM_BYTES + 44
 MAX_TEXT_LENGTH = 20_000
 ALLOWED_SAMPLE_RATES = range(8_000, 384_001)
+DEFAULT_BEAM_SIZE = 5
+MIN_BEAM_SIZE = 1
+MAX_BEAM_SIZE = 10
 
 
 class AudioError(ValueError):
     pass
+
+
+def validate_beam_size(value: int) -> int:
+    if isinstance(value, bool) or not isinstance(value, int) or not MIN_BEAM_SIZE <= value <= MAX_BEAM_SIZE:
+        raise ValueError("beam size must be an integer between 1 and 10")
+    return value
 
 
 def validate_wav(body: bytes) -> dict[str, int]:
@@ -196,7 +205,7 @@ class Handler(BaseHTTPRequestHandler):
                 return
             try:
                 segments, info = self.server.model.transcribe(
-                    io.BytesIO(body), beam_size=5, vad_filter=self.server.vad_filter
+                    io.BytesIO(body), beam_size=self.server.beam_size, vad_filter=self.server.vad_filter
                 )
                 parts, length = [], 0
                 for segment in segments:
@@ -215,15 +224,17 @@ class Handler(BaseHTTPRequestHandler):
             self.server.inference_lock.release()
 
 
-def create_server(host: str, port: int, model_name: str | None, device: str, compute_type: str, allow_download: bool, cpu_threads: int = 4, *, vad_filter: bool = True, max_handlers: int = 4, request_timeout: float = 10) -> ThreadingHTTPServer:
+def create_server(host: str, port: int, model_name: str | None, device: str, compute_type: str, allow_download: bool, cpu_threads: int = 4, *, vad_filter: bool = True, beam_size: int = DEFAULT_BEAM_SIZE, max_handlers: int = 4, request_timeout: float = 10) -> ThreadingHTTPServer:
     if host not in ("127.0.0.1", "localhost", "::1"):
         raise ValueError("host must be a loopback address")
     if not 1 <= max_handlers <= 32 or request_timeout <= 0 or cpu_threads < 1:
         raise ValueError("invalid local ASR resource limits")
+    validate_beam_size(beam_size)
     host = "127.0.0.1" if host == "localhost" else host
     server_class = IPv6HTTPServer if host == "::1" else BoundedHTTPServer
     server = server_class((host, port), Handler, max_handlers=max_handlers, request_timeout=request_timeout)
     server.vad_filter = vad_filter
+    server.beam_size = beam_size
     try:
         server.model = load_model(model_name, device, compute_type, allow_download, cpu_threads)
         server.model_error = None
@@ -242,13 +253,17 @@ def main() -> int:
     parser.add_argument("--compute-type", default=os.environ.get("WHISPER_COMPUTE_TYPE", "int8"))
     parser.add_argument("--allow-model-download", action="store_true", help="allow faster-whisper to download a named model")
     parser.add_argument("--no-vad-filter", action="store_true", help="disable VAD filtering for speech samples that lose words at segment boundaries")
+    parser.add_argument("--beam-size", type=int, default=DEFAULT_BEAM_SIZE, help="faster-whisper beam size from 1 to 10")
     parser.add_argument("--cpu-threads", type=int, default=4)
     args = parser.parse_args()
     if args.host not in ("127.0.0.1", "localhost", "::1"):
         parser.error("--host must be a loopback address")
     if args.cpu_threads < 1:
         parser.error("--cpu-threads must be positive")
-    server = create_server(args.host, args.port, args.model, args.device, args.compute_type, args.allow_model_download, args.cpu_threads, vad_filter=not args.no_vad_filter)
+    try:
+        server = create_server(args.host, args.port, args.model, args.device, args.compute_type, args.allow_model_download, args.cpu_threads, vad_filter=not args.no_vad_filter, beam_size=args.beam_size)
+    except ValueError as error:
+        parser.error(str(error))
 
     def stop(_signum: int, _frame: Any) -> None:
         threading.Thread(target=server.shutdown, daemon=True).start()

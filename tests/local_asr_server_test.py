@@ -131,6 +131,16 @@ class LocalAsrServerTests(unittest.TestCase):
             self.assertEqual(request(httpd)[0], 200)
         self.assertEqual(model.kwargs, {"beam_size": 5, "vad_filter": False})
 
+    def test_beam_size_is_forwarded_and_bounds_are_enforced(self):
+        model = FakeModel()
+        with running_server(model, beam_size=8) as httpd:
+            self.assertEqual(request(httpd)[0], 200)
+        self.assertEqual(model.kwargs, {"beam_size": 8, "vad_filter": True})
+        for value in (0, 11):
+            with self.subTest(value=value):
+                with self.assertRaises(ValueError):
+                    server.create_server("127.0.0.1", 0, None, "cpu", "int8", False, beam_size=value)
+
     def test_invalid_content_and_model_errors_have_fixed_responses(self):
         with running_server() as httpd:
             self.assertEqual(request(httpd, body=b"bad"), (400, {"error": "invalid PCM WAV input"}))

@@ -61,11 +61,12 @@ WHISPER_MODEL=/path/to/model npm run asr:doctor
 WHISPER_MODEL=/path/to/model npm run asr:doctor -- --audio /path/to/sample.wav --json
 WHISPER_MODEL=/path/to/model npm run asr:doctor -- --audio /path/to/sample.wav --repeat 3 --json
 WHISPER_MODEL=/path/to/model npm run asr:doctor -- --audio /path/to/sample.wav --expected-file /path/to/reference.txt --json
+WHISPER_MODEL=/path/to/model npm run asr:doctor -- --audio /path/to/sample.wav --beam-size 8 --json
 WHISPER_MODEL=/path/to/model npm run asr:smoke -- --json
-WHISPER_MODEL=/path/to/model npm run asr:smoke -- --audio /path/to/sample.wav --no-vad-filter --json
+WHISPER_MODEL=/path/to/model npm run asr:smoke -- --audio /path/to/sample.wav --beam-size 8 --no-vad-filter --json
 ```
 
-诊断报告只输出 provider、依赖版本、模型来源、加载耗时、音频格式、语言、推理耗时、转写字符数，以及进程 CPU 用户/系统耗时和峰值 RSS 内存，不输出原始转写文本或音频内容；`--audio` 仍只接受整数 PCM WAV。`--repeat N` 会重复音频推理并在 JSON 中报告平均、最小、P95 和运行次数，默认只运行一次。传入 `--expected-text` 或 UTF-8 的 `--expected-file` 后，报告还会给出首轮推理的 CER/WER 和参考/假设文本计数；工具会统一大小写和空白，但不会打印参考文本或模型转写。命名模型下载需要同时传 `--allow-model-download`，默认保持离线。资源指标在当前平台可用时报告，否则标记为不可用。
+诊断报告只输出 provider、依赖版本、模型来源、加载耗时、音频格式、语言、推理耗时、转写字符数，以及进程 CPU 用户/系统耗时和峰值 RSS 内存，不输出原始转写文本或音频内容；`--audio` 仍只接受整数 PCM WAV。`--repeat N` 会重复音频推理并在 JSON 中报告平均、最小、P95 和运行次数，默认只运行一次。`--beam-size` 接受 1–10 的整数，默认是 5；它只调整 faster-whisper 的搜索宽度，不改变 VAD 默认开启状态。传入 `--expected-text` 或 UTF-8 的 `--expected-file` 后，报告还会给出首轮推理的 CER/WER 和参考/假设文本计数；工具会统一大小写和空白，但不会打印参考文本或模型转写。命名模型下载需要同时传 `--allow-model-download`，默认保持离线。资源指标在当前平台可用时报告，否则标记为不可用。
 
 一份授权中文 WAV 已完成真实 `faster-whisper tiny` 和 loopback 验证，结果见 [真实语音 ASR 验证报告](../reports/asr-real-speech-verification-2026-11-15.md)。该样本 CER/WER 偏高，因此报告只证明模型调用链和服务协议可用，不代表中文识别质量已经通过。
 
@@ -86,7 +87,9 @@ npm start
 
 `CODING_HELP_ASR_NO_VAD_FILTER=1` 只会在命令参数包含当前仓库的 `services/local-asr/faster_whisper_server.py` 时追加 `--no-vad-filter`；自定义外部命令保持原样，避免应用擅自改写第三方服务参数。
 
-服务默认使用 CPU `int8`、4 个 CPU 线程和 VAD 过滤，只监听 loopback；也可设置 `WHISPER_DEVICE`、`WHISPER_COMPUTE_TYPE`。对语音样本如果发现分段边界吞字，可显式给服务传 `--no-vad-filter`，默认行为保持不变。服务严格校验 PCM WAV 和 `Content-Length`，限制并发与推理资源。模型路径缺失、依赖未安装或模型加载失败时服务仍可启动用于 `/healthz` 诊断，但返回 503，不会返回固定文本或伪造识别。需要允许下载命名模型时显式传 `--allow-model-download`，仓库不会替用户下载模型。
+桌面 supervisor 需要在 JSON argv 中显式传入 beam size，例如 `CODING_HELP_ASR_COMMAND='["python3","services/local-asr/faster_whisper_server.py","--beam-size","8"]'`；应用不会替外部命令追加该参数。
+
+服务默认使用 CPU `int8`、4 个 CPU 线程、beam size 5 和 VAD 过滤，只监听 loopback；也可设置 `WHISPER_DEVICE`、`WHISPER_COMPUTE_TYPE`。启动服务或 `asr:smoke` 时可传 `--beam-size 1..10` 做本机参数对比。对语音样本如果发现分段边界吞字，可显式给服务传 `--no-vad-filter`，默认行为保持不变。服务严格校验 PCM WAV 和 `Content-Length`，限制并发与推理资源。模型路径缺失、依赖未安装或模型加载失败时服务仍可启动用于 `/healthz` 诊断，但返回 503，不会返回固定文本或伪造识别。需要允许下载命名模型时显式传 `--allow-model-download`，仓库不会替用户下载模型。
 
 ## 使用麦克风
 

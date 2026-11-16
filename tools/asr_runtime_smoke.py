@@ -20,10 +20,19 @@ from typing import Any, Callable
 SERVER_PATH = Path(__file__).parents[1] / "services" / "local-asr" / "faster_whisper_server.py"
 MAX_RESPONSE_BYTES = 64 * 1024
 LOOPBACK_HOSTS = ("127.0.0.1", "localhost", "::1")
+DEFAULT_BEAM_SIZE = 5
+MIN_BEAM_SIZE = 1
+MAX_BEAM_SIZE = 10
 
 
 class SmokeError(RuntimeError):
     """A fixed, safe error suitable for CLI output."""
+
+
+def validate_beam_size(value: int) -> int:
+    if isinstance(value, bool) or not isinstance(value, int) or not MIN_BEAM_SIZE <= value <= MAX_BEAM_SIZE:
+        raise SmokeError("beam size must be an integer between 1 and 10")
+    return value
 
 
 def silence_wav(seconds: int = 1, sample_rate: int = 16_000) -> bytes:
@@ -113,7 +122,9 @@ def build_command(
     cpu_threads: int,
     allow_download: bool,
     vad_filter: bool = True,
+    beam_size: int = DEFAULT_BEAM_SIZE,
 ) -> list[str]:
+    validate_beam_size(beam_size)
     command = [
         sys.executable,
         str(SERVER_PATH),
@@ -134,6 +145,8 @@ def build_command(
         command.append("--allow-model-download")
     if not vad_filter:
         command.append("--no-vad-filter")
+    if beam_size != DEFAULT_BEAM_SIZE:
+        command.extend(("--beam-size", str(beam_size)))
     return command
 
 
@@ -161,6 +174,7 @@ def run_smoke(
     cpu_threads: int = 4,
     allow_download: bool = False,
     vad_filter: bool = True,
+    beam_size: int = DEFAULT_BEAM_SIZE,
     timeout: float = 30.0,
     popen_factory: Callable[..., Any] = subprocess.Popen,
     requester: Callable[..., tuple[int, dict[str, Any]]] = _request_json,
@@ -172,6 +186,7 @@ def run_smoke(
         raise SmokeError("host must be a loopback address")
     if not isinstance(cpu_threads, int) or cpu_threads < 1:
         raise SmokeError("cpu thread count is invalid")
+    validate_beam_size(beam_size)
     if timeout <= 0:
         raise SmokeError("smoke timeout is invalid")
     try:
@@ -183,7 +198,7 @@ def run_smoke(
         port = port_allocator(host)
     except OSError as error:
         raise SmokeError("local ASR service could not allocate a port") from error
-    command = build_command(host, port, model_name, device, compute_type, cpu_threads, allow_download, vad_filter)
+    command = build_command(host, port, model_name, device, compute_type, cpu_threads, allow_download, vad_filter, beam_size)
     try:
         process = popen_factory(command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, text=True)
     except OSError as error:
@@ -232,6 +247,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--timeout", type=float, default=30.0)
     parser.add_argument("--allow-model-download", action="store_true", help="allow a named model to be downloaded")
     parser.add_argument("--no-vad-filter", action="store_true", help="disable VAD filtering for speech samples that lose words at segment boundaries")
+    parser.add_argument("--beam-size", type=int, default=DEFAULT_BEAM_SIZE, help="faster-whisper beam size from 1 to 10")
     parser.add_argument("--json", action="store_true", dest="json_output", help="print a machine-readable JSON report")
     args = parser.parse_args(argv)
     try:
@@ -244,6 +260,7 @@ def main(argv: list[str] | None = None) -> int:
             cpu_threads=args.cpu_threads,
             allow_download=args.allow_model_download,
             vad_filter=not args.no_vad_filter,
+            beam_size=args.beam_size,
             timeout=args.timeout,
         )
     except SmokeError as error:

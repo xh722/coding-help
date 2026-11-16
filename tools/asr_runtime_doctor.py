@@ -17,6 +17,10 @@ from typing import Any, Callable
 
 from asr_quality import score_transcript
 
+DEFAULT_BEAM_SIZE = 5
+MIN_BEAM_SIZE = 1
+MAX_BEAM_SIZE = 10
+
 try:
     import resource
 except ImportError:  # pragma: no cover - unavailable on Windows
@@ -74,6 +78,12 @@ def _percentile_ms(values: list[float], percentile: float) -> float:
     return round(ordered[index], 2)
 
 
+def validate_beam_size(value: int) -> int:
+    if isinstance(value, bool) or not isinstance(value, int) or not MIN_BEAM_SIZE <= value <= MAX_BEAM_SIZE:
+        raise ValueError("beam size must be an integer between 1 and 10")
+    return value
+
+
 def run_doctor(
     model_name: str | None,
     *,
@@ -88,6 +98,7 @@ def run_doctor(
     usage_reader: Callable[[], dict[str, float] | None] | None = None,
     repeat: int = 1,
     expected_text: str | None = None,
+    beam_size: int = DEFAULT_BEAM_SIZE,
 ) -> dict[str, Any]:
     result: dict[str, Any] = {"ok": False, "provider": "faster-whisper", "versions": {}}
 
@@ -113,6 +124,11 @@ def run_doctor(
         return finish(result)
     if not isinstance(repeat, int) or repeat < 1:
         result["error"] = "audio repeat count is invalid"
+        return finish(result)
+    try:
+        validate_beam_size(beam_size)
+    except ValueError:
+        result["error"] = "beam size is invalid"
         return finish(result)
     if expected_text is not None and not audio_path:
         result["error"] = "expected transcript requires audio"
@@ -168,7 +184,7 @@ def run_doctor(
         for _ in range(repeat):
             started = clock()
             try:
-                segments, info = model.transcribe(io.BytesIO(body), beam_size=5, vad_filter=True)
+                segments, info = model.transcribe(io.BytesIO(body), beam_size=beam_size, vad_filter=True)
                 parts = []
                 current_transcript_chars = 0
                 for segment in segments:
@@ -214,6 +230,7 @@ def main(argv: list[str] | None = None) -> int:
     expected.add_argument("--expected-text", help="reference transcript for CER/WER without printing the hypothesis")
     expected.add_argument("--expected-file", help="UTF-8 file containing the reference transcript")
     parser.add_argument("--allow-model-download", action="store_true", help="allow a named model to be downloaded")
+    parser.add_argument("--beam-size", type=int, default=DEFAULT_BEAM_SIZE, help="faster-whisper beam size from 1 to 10")
     parser.add_argument("--json", action="store_true", dest="json_output", help="print a machine-readable JSON report")
     args = parser.parse_args(argv)
     expected_text = args.expected_text
@@ -232,6 +249,7 @@ def main(argv: list[str] | None = None) -> int:
                 allow_download=args.allow_model_download,
                 repeat=args.repeat,
                 expected_text=expected_text,
+                beam_size=args.beam_size,
             )
     else:
         result = run_doctor(
@@ -243,6 +261,7 @@ def main(argv: list[str] | None = None) -> int:
             allow_download=args.allow_model_download,
             repeat=args.repeat,
             expected_text=expected_text,
+            beam_size=args.beam_size,
         )
     if args.json_output:
         print(json.dumps(result, ensure_ascii=False, sort_keys=True))

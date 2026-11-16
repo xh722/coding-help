@@ -78,6 +78,12 @@ class AsrRuntimeSmokeTests(unittest.TestCase):
         command = smoke.build_command("127.0.0.1", 43210, "tiny", "cpu", "int8", 4, False, vad_filter=False)
         self.assertEqual(command[-1], "--no-vad-filter")
 
+    def test_smoke_command_includes_bounded_beam_size(self):
+        command = smoke.build_command("127.0.0.1", 43210, "tiny", "cpu", "int8", 4, False, beam_size=8)
+        self.assertEqual(command[-2:], ["--beam-size", "8"])
+        with self.assertRaises(smoke.SmokeError):
+            smoke.build_command("127.0.0.1", 43210, "tiny", "cpu", "int8", 4, False, beam_size=0)
+
     def test_run_smoke_rejects_external_bind_target(self):
         with self.assertRaises(smoke.SmokeError) as context:
             smoke.run_smoke("tiny", host="0.0.0.0")

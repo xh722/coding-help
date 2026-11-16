@@ -72,6 +72,37 @@ class AsrRuntimeDoctorTests(unittest.TestCase):
         self.assertNotIn("secret transcript", str(result))
         self.assertEqual(result["audio"]["format"]["sampleRate"], 16000)
 
+    def test_audio_probe_accepts_beam_size(self):
+        class Segment:
+            text = "tunable"
+
+        class Info:
+            language = "en"
+
+        class FakeModel:
+            last_kwargs = None
+
+            def __init__(self, _name, **_kwargs):
+                pass
+
+            def transcribe(self, _audio, **kwargs):
+                FakeModel.last_kwargs = kwargs
+                return iter([Segment()]), Info()
+
+        module = types.SimpleNamespace(__version__="fake-1", WhisperModel=FakeModel)
+        with tempfile.TemporaryDirectory() as directory:
+            audio_path = Path(directory) / "sample.wav"
+            audio_path.write_bytes(silence_wav())
+            result = doctor.run_doctor(directory, audio_path=str(audio_path), beam_size=8, module=module, importer=None)
+        self.assertTrue(result["ok"])
+        self.assertEqual(FakeModel.last_kwargs, {"beam_size": 8, "vad_filter": True})
+
+    def test_invalid_beam_size_is_reported_without_loading_model(self):
+        with tempfile.TemporaryDirectory() as directory:
+            result = doctor.run_doctor(directory, beam_size=11, module=None, importer=lambda _name: (_ for _ in ()).throw(AssertionError()))
+        self.assertFalse(result["ok"])
+        self.assertEqual(result["error"], "beam size is invalid")
+
     def test_report_includes_process_cpu_and_peak_memory_metrics(self):
         class FakeModel:
             def __init__(self, _name, **_kwargs):
