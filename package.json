@@ -26,6 +26,7 @@
     "test:audio-preflight": "python3 -m unittest tests/audio_hardware_preflight_test.py",
     "asr:preflight": "python3 tools/asr_runtime_preflight.py",
     "asr:doctor": "python3 tools/asr_runtime_doctor.py",
+    "asr:benchmark": "python3 tools/asr_quality_benchmark.py",
     "asr:smoke": "python3 tools/asr_runtime_smoke.py",
     "audio:preflight": "python3 tools/audio_hardware_preflight.py",
     "ocr:preflight": "node tools/screen-ocr-preflight.cjs",
