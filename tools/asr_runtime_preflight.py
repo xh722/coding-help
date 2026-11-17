@@ -5,9 +5,20 @@ from __future__ import annotations
 
 import argparse
 import importlib
+import json
 import os
 from pathlib import Path
 from typing import Any, Callable
+
+
+_ERROR_CODES = {
+    "model path is required": "ASR_MODEL_MISSING",
+    "model path is missing": "ASR_MODEL_MISSING",
+    "model path is not a directory": "ASR_MODEL_INVALID",
+    "faster-whisper is not installed": "ASR_DEPENDENCY_MISSING",
+    "faster-whisper model could not be loaded": "ASR_RUNTIME_UNAVAILABLE",
+    "cpu thread count is invalid": "ASR_INVALID_CONFIG",
+}
 
 
 def inspect_runtime(
@@ -48,6 +59,13 @@ def inspect_runtime(
     return True, "faster-whisper model loaded"
 
 
+def runtime_result(ok: bool, message: str) -> dict[str, Any]:
+    """Return a fixed, path-free JSON result for shell and aggregate probes."""
+    code = "ASR_READY" if ok else _ERROR_CODES.get(message, "ASR_RUNTIME_UNAVAILABLE")
+    safe_message = "faster-whisper model loaded" if ok else message if message in _ERROR_CODES else "ASR runtime is unavailable."
+    return {"ok": ok, "code": code, "message": safe_message}
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Check the optional local faster-whisper runtime and model.")
     parser.add_argument("--model", default=os.environ.get("WHISPER_MODEL"))
@@ -55,6 +73,7 @@ def main() -> int:
     parser.add_argument("--compute-type", default=os.environ.get("WHISPER_COMPUTE_TYPE", "int8"))
     parser.add_argument("--cpu-threads", type=int, default=4)
     parser.add_argument("--allow-model-download", action="store_true", help="allow a named model to be downloaded")
+    parser.add_argument("--json", action="store_true", dest="json_output", help="print a machine-readable JSON report")
     args = parser.parse_args()
     ok, message = inspect_runtime(
         args.model,
@@ -63,6 +82,9 @@ def main() -> int:
         cpu_threads=args.cpu_threads,
         allow_download=args.allow_model_download,
     )
+    if args.json_output:
+        print(json.dumps(runtime_result(ok, message), ensure_ascii=False, sort_keys=True))
+        return 0 if ok else 2
     if ok:
         print(f"ASR runtime verified: {message}")
         return 0

@@ -9,6 +9,20 @@ import asr_runtime_preflight as preflight  # noqa: E402
 
 
 class AsrRuntimePreflightTests(unittest.TestCase):
+    def test_runtime_result_uses_fixed_codes_and_messages(self):
+        self.assertEqual(
+            preflight.runtime_result(False, "model path is missing"),
+            {"ok": False, "code": "ASR_MODEL_MISSING", "message": "model path is missing"},
+        )
+        self.assertEqual(
+            preflight.runtime_result(False, "/private/model failure"),
+            {"ok": False, "code": "ASR_RUNTIME_UNAVAILABLE", "message": "ASR runtime is unavailable."},
+        )
+        self.assertEqual(
+            preflight.runtime_result(True, "faster-whisper model loaded"),
+            {"ok": True, "code": "ASR_READY", "message": "faster-whisper model loaded"},
+        )
+
     def test_missing_dependency_is_not_verified(self):
         with tempfile.TemporaryDirectory() as directory:
             ok, message = preflight.inspect_runtime(directory, module=None, importer=lambda _name: (_ for _ in ()).throw(ImportError()))

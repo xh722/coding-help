@@ -8,6 +8,7 @@
 npm ci
 npm test
 npm run check
+npm run local:preflight -- --json
 ```
 
 Linux x64 bundle：
@@ -21,6 +22,8 @@ npm run check:linux-bundle
 构建目录只使用当前 checkout 的应用文件和已安装 Electron runtime；清单校验每个文件的 SHA-256。生成的 `dist/` 被 Git 忽略，不会提交二进制产物。签名、自动更新和 Windows/macOS 安装包仍未实现。
 
 `npm test` 使用 Node 内置测试运行器覆盖认证、存储、IPC、会话状态机、provider、local API 和端到端本地流程。`npm run check` 对仓库中的 JavaScript/CommonJS 文件执行语法检查。
+
+`npm run local:preflight -- --json` 汇总 OCR、音频硬件、ASR 模型和 GPG/TAR 工具状态。报告把每项标为 `ready`、`unavailable` 或 `needs_configuration`，默认只生成诊断结果；增加 `--strict` 才会在仍有未验证能力时返回退出码 2。该命令不联网、不打开录音流、不读取屏幕，也不会输出设备名、模型路径或异常正文。
 
 ## 启动
 

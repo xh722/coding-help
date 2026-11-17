@@ -22,6 +22,7 @@
 - [ ] **6. Windows 动态行为对照**：使用授权 Windows 虚拟机运行原版 preflight，记录 agent、采集和网络边界；当前环境跳过。
 - [x] **7. 离线更新适配器**：本地 manifest、GPG detached signature、归档哈希、tar 路径检查、原子 current/previous 切换和 rollback 已完成；原版更新服务器兼容仍待动态证据。
 - [x] **7a. 离线更新真实运行时回归**：`update:verify` 在隔离临时目录生成一次性 GPG key，使用真实 `gpg`/`tar` 验证两版 manifest、签名、归档哈希、安装和 `current/previous` 回滚；不接触生产密钥或网络。
+- [x] **7b. 本地能力诊断**：`local:preflight` 汇总 OCR、音频硬件、ASR 模型和更新工具状态，使用固定状态码和脱敏 JSON；`--strict` 可作为本地发布前置门禁。
 
 - [ ] **Windows 动态验证**：使用授权 Windows x64 虚拟机运行 `tools/windows-dynamic-preflight.ps1`，再观察原版安装器、`interviewcoder.exe`、`agent-windows.exe`、录音/屏幕采集、stdin/stdout 协议和网络边界。
   - 状态：已记录，当前跳过。
