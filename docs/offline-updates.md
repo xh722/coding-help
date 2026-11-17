@@ -32,6 +32,16 @@ interviewcoder-local-rebuild-0.1.1-linux-x64.manifest.json.asc
 
 `build:update` 使用 `tar` 创建归档，使用 `gpg --detach-sign --armor` 签名 manifest。已有同名输出时会拒绝覆盖。
 
+## 本机运行时回归
+
+可以在不配置生产 key、也不访问网络的情况下验证真实 GPG/TAR 链路：
+
+```bash
+npm run update:verify -- --json
+```
+
+该命令在隔离临时目录生成一次性 GPG key，构造两版最小 bundle，运行真实 `gpg` 签名和验证、真实 `tar` 归档与解包，再检查 `current/previous` 指针和 rollback。输出只包含固定的版本、检查项和耗时，不包含指纹、临时路径、私钥或归档内容。它证明本机工具链可运行，不替代生产密钥、跨平台安装器或原版更新服务器验收。
+
 ## 应用更新
 
 Debian 包的 launcher 会优先执行 `/opt/interviewcoder-local-rebuild/current/run.sh`，没有 current 指针时回退到包内原始 `run.sh`。因此可以把 Debian 安装根目录作为 update root；写入 `/opt` 需要管理员权限。
