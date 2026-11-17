@@ -15,6 +15,7 @@
 - [x] **3. 系统音频能力探测**：探测当前平台是否提供回放采集，明确潜在路径、拒绝原因和 UI 状态；没有平台实现时保持安全的不可用结果。实际采集仍待平台验收。
 - [x] **3a. 系统音频采集接入**：Dashboard 选择系统音频后由 `getDisplayMedia` 建立音频流，立即停止视频轨道，复用 PCM Worklet/ASR，接入暂停、恢复、停止、错误和 `display-capture` 权限门控；真实平台回放样本仍待验收。
 - [x] **3b. 主屏屏幕 OCR**：快捷键 `CommandOrControl+Shift+O` 和 Dashboard 按钮捕获主屏全屏 PNG，在内存中调用固定 Tesseract argv；Tesseract 与中英文语言包已通过本机合成图验证，真实屏幕捕获和 Electron smoke 仍待有显示服务的环境验收。
+- [x] **3c. 本地 ASR 稳定性验收工具**：`asr:stability` 使用合成静音重复检查 loopback 健康、请求延迟、状态计数、最终健康状态和退出清理；它不替代真实语音质量、物理设备或平台权限验收。
 - [ ] **4. 具体本地 ASR 模型服务**：在用户授权并部署 Whisper/Vosk 等模型服务后，接入已完成的 loopback 协议并验证语言、延迟和错误恢复；`faster-whisper tiny` 已用一份带逐字参考文本的授权中文 WAV 完成真实模型和 loopback 验证，但该样本 CER `0.5676`、WER `3.0`，识别质量和多样本稳定性仍未通过。
 - [ ] **5. 真实硬件验收**：在授权 Linux/Windows/macOS 设备验证权限、设备切换、拔插、暂停恢复和长时间运行。
 - [ ] **6. Windows 动态行为对照**：使用授权 Windows 虚拟机运行原版 preflight，记录 agent、采集和网络边界；当前环境跳过。
@@ -86,6 +87,7 @@
 - [x] ASR runtime 预检下载边界：`--allow-model-download` 只对命名模型开启下载，默认路径和已有本地目录保持离线加载；下载失败仍返回退出码 2。
 - [x] ASR runtime 实际 smoke：`asr:smoke` 可启动隔离 Python 环境中的 `faster-whisper tiny`，验证 loopback `/healthz`、静音和授权语音 `/transcribe` 以及退出清理；多样本识别质量仍待完成。
 - [x] ASR runtime doctor：提供依赖/模型诊断、可选 PCM WAV 重复推理统计、进程 CPU/峰值 RSS 资源指标、参考文本 CER/WER 和 JSON 报告；不输出原始转写文本，已有一例授权语音指标，质量门槛和多样本稳定性仍待完成。
+- [x] ASR runtime stability：使用有界合成静音循环验证 loopback 服务重复请求、首尾健康检查、延迟统计、固定错误和退出清理；该证据不代表真实语音准确率或物理音频设备通过。
 - [x] Linux bundle 发布门禁：CI 可锁定来源提交 SHA，清单不匹配时拒绝验收；签名、更新下载和回滚仍未实现。
 - [x] Debian x64 可安装包：`build:deb`/`check:deb` 验证包元数据、启动器、桌面入口和内部 bundle 清单。
 - [x] 物理硬件只读预检：`audio:preflight` 检查 `/dev/snd`、ALSA、PulseAudio 和显示环境，不打开录音流；当前容器无可用设备，物理验收仍阻塞。

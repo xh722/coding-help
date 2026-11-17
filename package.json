@@ -23,11 +23,13 @@
     "test:asr-doctor": "python3 -m unittest tests/asr_runtime_doctor_test.py",
     "test:asr-quality": "python3 -m unittest tests/asr_quality_test.py",
     "test:asr-smoke": "python3 -m unittest tests/asr_runtime_smoke_test.py",
+    "test:asr-stability": "python3 -m unittest tests/asr_runtime_stability_test.py",
     "test:audio-preflight": "python3 -m unittest tests/audio_hardware_preflight_test.py",
     "asr:preflight": "python3 tools/asr_runtime_preflight.py",
     "asr:doctor": "python3 tools/asr_runtime_doctor.py",
     "asr:benchmark": "python3 tools/asr_quality_benchmark.py",
     "asr:smoke": "python3 tools/asr_runtime_smoke.py",
+    "asr:stability": "python3 tools/asr_runtime_stability.py",
     "audio:preflight": "python3 tools/audio_hardware_preflight.py",
     "ocr:preflight": "node tools/screen-ocr-preflight.cjs",
     "asr:faster-whisper": "python3 services/local-asr/faster_whisper_server.py"

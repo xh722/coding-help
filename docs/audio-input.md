@@ -87,6 +87,15 @@ WHISPER_MODEL=/path/to/model npm run asr:benchmark -- --manifest /path/to/sample
 
 `asr:benchmark` 最多接受 32 份样本、每份参考文本最多 20,000 个字符；默认比较 beam `1/5/10` 和 VAD 开/关。报告只包含样本序号、格式、语言、CER/WER、延迟、CPU/RSS 等指标，不输出音频路径、参考文本或模型转写。单样本或少量样本只能用于参数趋势，不能直接证明中文识别质量通过。
 
+如果暂时没有新的人工录音，可以先验证本地服务的重复请求和退出清理：
+
+```bash
+WHISPER_MODEL=/path/to/model npm run asr:stability -- --iterations 5 --json
+WHISPER_MODEL=/path/to/model npm run asr:stability -- --audio /path/to/sample.wav --iterations 10 --beam-size 5 --json
+```
+
+`asr:stability` 默认发送合成的 1 秒静音 WAV，先检查 `/healthz`，再重复发送有界次数的 `/transcribe`，最后再次检查健康状态并清理服务进程。报告只包含成功/失败计数、HTTP 状态计数、语言、音频格式、平均/最小/P95 延迟、当前探测进程资源和清理状态，不包含转写文本、音频路径、模型路径或异常正文。该命令验证服务生命周期和稳定性，不验证语音识别准确率；真实麦克风、系统音频和平台权限仍需硬件验收。
+
 一份授权中文 WAV 已完成真实 `faster-whisper tiny` 和 loopback 验证，结果见 [真实语音 ASR 验证报告](../reports/asr-real-speech-verification-2026-11-15.md)。该样本 CER/WER 偏高，因此报告只证明模型调用链和服务协议可用，不代表中文识别质量已经通过。
 
 需要同时验证服务生命周期和 loopback HTTP 协议时，运行 `asr:smoke`。它会在本机启动仓库内的 `faster_whisper_server.py`，轮询 `/healthz`，发送指定或生成的 1 秒静音 WAV 到 `/transcribe`，最后清理服务进程。默认仍只使用本地模型；命名模型只有显式传 `--allow-model-download` 才允许下载。报告会脱敏为状态、语言、格式和文本字符数，不输出原始转写文本、模型路径或服务异常。
