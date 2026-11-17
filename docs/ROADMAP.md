@@ -16,6 +16,7 @@
 - [x] **3a. 系统音频采集接入**：Dashboard 选择系统音频后由 `getDisplayMedia` 建立音频流，立即停止视频轨道，复用 PCM Worklet/ASR，接入暂停、恢复、停止、错误和 `display-capture` 权限门控；真实平台回放样本仍待验收。
 - [x] **3b. 主屏屏幕 OCR**：快捷键 `CommandOrControl+Shift+O` 和 Dashboard 按钮捕获主屏全屏 PNG，在内存中调用固定 Tesseract argv；Tesseract 与中英文语言包已通过本机合成图验证，真实屏幕捕获和 Electron smoke 仍待有显示服务的环境验收。
 - [x] **3c. 本地 ASR 稳定性验收工具**：`asr:stability` 使用合成静音重复检查 loopback 健康、请求延迟、状态计数、最终健康状态和退出清理；它不替代真实语音质量、物理设备或平台权限验收。
+- [x] **3d. OCR 合成图回归与结果生命周期**：`ocr:verify` 使用固定合成 PNG 运行真实 Tesseract，只输出字符数/耗时/匹配状态；主进程拒绝并发 OCR，失败后允许下一次重试。
 - [ ] **4. 具体本地 ASR 模型服务**：在用户授权并部署 Whisper/Vosk 等模型服务后，接入已完成的 loopback 协议并验证语言、延迟和错误恢复；`faster-whisper tiny` 已用一份带逐字参考文本的授权中文 WAV 完成真实模型和 loopback 验证，但该样本 CER `0.5676`、WER `3.0`，识别质量和多样本稳定性仍未通过。
 - [ ] **5. 真实硬件验收**：在授权 Linux/Windows/macOS 设备验证权限、设备切换、拔插、暂停恢复和长时间运行。
 - [ ] **6. Windows 动态行为对照**：使用授权 Windows 虚拟机运行原版 preflight，记录 agent、采集和网络边界；当前环境跳过。

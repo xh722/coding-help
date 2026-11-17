@@ -184,6 +184,16 @@ npm run ocr:preflight -- --json
 
 预检只执行 `tesseract --version` 和 `tesseract --list-langs`，不读取屏幕、不启动 OCR、不访问网络；完整可用时返回退出码 0，缺少程序或语言包时返回退出码 2 和固定错误码。
 
+可以用固定合成 PNG 做真实 Tesseract 回归，不需要显示器或额外人工样本：
+
+```bash
+npm run ocr:verify -- --json
+# 也可以验证一个本地 PNG；输出仍不会包含识别文字或路径
+npm run ocr:verify -- --png /path/to/screenshot.png --language chi_sim+eng --json
+```
+
+默认自测只验证真实 Tesseract 能识别内嵌的 `LOCAL OCR TEST` 合成图，并报告是否命中、字符数和耗时；它不代表真实桌面内容准确率。主进程同一时间只允许一个 OCR 请求，超时或失败后会清除占用状态，下一次请求可以重新捕获。
+
 ## 支持范围
 
 | 属性 | 支持范围 |

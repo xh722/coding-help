@@ -29,7 +29,7 @@ npm run check
 node --check tools/electron-smoke.cjs
 ```
 
-结果：OCR provider 5 项通过；OCR 本机预检 4 项通过；系统音频 renderer/provider 6 项通过；桌面音频与权限集成 8 项通过；全量 Node 测试 174 项通过；Python ASR/硬件预检合计 39 项通过；JavaScript 语法检查 67 个文件和 Electron smoke 脚本语法检查通过。另用临时合成 PNG 运行了真实 `tesseract` 进程，返回 `Local OCR 验收样本`（`chi_sim+eng`，14 字符）；临时图片未写入仓库。`tools/electron-smoke.cjs` 已加入 OCR 可用/不可用两条路径，以及 OCR 不更新截图预览的断言。
+结果：OCR provider 5 项通过；OCR 本机预检 4 项通过；系统音频 renderer/provider 6 项通过；桌面音频与权限集成 8 项通过；全量 Node 测试 174 项通过；Python ASR/硬件预检合计 39 项通过；JavaScript 语法检查 67 个文件和 Electron smoke 脚本语法检查通过。`npm run ocr:verify -- --json` 使用仓库内嵌的固定合成 PNG 运行真实 `tesseract`，只输出 `matchesExpected`、字符数和耗时；提供 `--png` 时也只输出脱敏指标。`tools/electron-smoke.cjs` 已加入 OCR 可用/不可用两条路径，以及 OCR 不更新截图预览的断言。主进程契约测试还覆盖并发请求返回 `OCR_BUSY`，以及失败后下一次请求可重试。
 
 覆盖的关键断言：
 

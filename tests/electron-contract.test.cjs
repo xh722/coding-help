@@ -116,6 +116,44 @@ test('main OCR captures the primary display in memory and broadcasts only the re
   assert.equal(events.some((event) => event.dataUrl), false);
 });
 
+test('main OCR rejects concurrent work and permits a later request', async (t) => {
+  const { createAppDependencies } = require('../apps/desktop/main/index.cjs');
+  let release;
+  let calls = 0;
+  const deps = createAppDependencies({
+    screen: { getPrimaryDisplay: () => ({ id: 7, bounds: { width: 320, height: 80 } }) },
+    desktopCapturer: { getSources: async () => [{ display_id: '7', thumbnail: { toPNG: () => Buffer.from('png') } }] },
+    screenOcr: { recognize: async () => { calls += 1; return new Promise((resolve) => { release = resolve; }); } },
+  });
+  t.after(() => deps.shutdown());
+
+  const first = deps.ocrPrimaryDisplay();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.deepEqual(await deps.ocrPrimaryDisplay(), { ok: false, error: { code: 'OCR_BUSY', message: 'Screen OCR is already running.' } });
+  release({ ok: true, text: 'first', language: 'eng', chars: 5 });
+  assert.deepEqual(await first, { ok: true, text: 'first', language: 'eng', chars: 5 });
+  assert.equal(calls, 1);
+});
+
+test('main OCR clears in-flight state after failure so the next request can run', async (t) => {
+  const { createAppDependencies } = require('../apps/desktop/main/index.cjs');
+  const events = [];
+  let calls = 0;
+  const deps = createAppDependencies({
+    screen: { getPrimaryDisplay: () => ({ id: 7, bounds: { width: 320, height: 80 } }) },
+    desktopCapturer: { getSources: async () => [{ display_id: '7', thumbnail: { toPNG: () => Buffer.from('png') } }] },
+    screenOcr: { recognize: async () => ++calls === 1 ? { ok: false, code: 'OCR_TIMEOUT' } : { ok: true, text: 'retry', language: 'eng', chars: 5 } },
+    clock: () => 100,
+  });
+  deps.windows.dashboard = { isDestroyed: () => false, webContents: { send: (_channel, event) => events.push(event) } };
+  t.after(() => deps.shutdown());
+
+  assert.deepEqual((await deps.ocrPrimaryDisplay()).error.code, 'OCR_TIMEOUT');
+  assert.deepEqual(await deps.ocrPrimaryDisplay(), { ok: true, text: 'retry', language: 'eng', chars: 5 });
+  assert.equal(calls, 2);
+  assert.deepEqual(events.map((event) => event.type), ['screen-ocr.started', 'screen-ocr.failed', 'screen-ocr.started', 'screen-ocr.result']);
+});
+
 test('main registers and unregisters the screen OCR shortcut', () => {
   const { createAppDependencies } = require('../apps/desktop/main/index.cjs');
   const deps = createAppDependencies();
