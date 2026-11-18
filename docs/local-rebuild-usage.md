@@ -25,6 +25,14 @@ npm run check:linux-bundle
 
 `npm run local:preflight -- --json` 汇总 OCR、音频硬件、ASR 模型和 GPG/TAR 工具状态。报告把每项标为 `ready`、`unavailable` 或 `needs_configuration`，默认只生成诊断结果；增加 `--strict` 才会在仍有未验证能力时返回退出码 2。该命令不联网、不打开录音流、不读取屏幕，也不会输出设备名、模型路径或异常正文。
 
+需要同时验证本地 OCR 和离线更新链时，使用：
+
+```bash
+npm run local:preflight -- --deep --json
+```
+
+`--deep` 会运行固定合成图 OCR 和隔离临时目录中的 GPG/TAR 更新安装与回滚回归。基础硬件、模型和工具状态仍位于 `checks`，深度结果位于 `checks.ocr.deep`、`checks.update.deep` 和 `regressions`；只保留固定状态码、字符数、匹配布尔值和签名/归档/回滚布尔值，不输出识别文本、路径、指纹或 stderr。
+
 ## 启动
 
 ```bash

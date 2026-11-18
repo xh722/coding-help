@@ -6,6 +6,7 @@ const { inspectEnvironment: inspectOcr } = require('./screen-ocr-preflight.cjs')
 
 const REPO_ROOT = path.resolve(__dirname, '..');
 const PROBE_TIMEOUT_MS = 5000;
+const DEEP_VERIFY_TIMEOUT_MS = 15000;
 const SAFE_AUDIO_REASONS = new Set(['audio input detected', 'audio probe unavailable', 'no audio input device detected']);
 const SAFE_ASR_MESSAGES = new Set([
   'model path is required',
@@ -20,12 +21,12 @@ function failedProbe() {
   return { ok: false, code: 'CAPABILITY_PROBE_FAILED' };
 }
 
-function runJsonProbe(command, args, { runner = spawnSync, cwd = REPO_ROOT } = {}) {
+function runJsonCommand(command, args, { runner = spawnSync, cwd = REPO_ROOT, timeoutMs = PROBE_TIMEOUT_MS } = {}) {
   try {
     const result = runner(command, args, {
       cwd,
       encoding: 'utf8',
-      timeout: PROBE_TIMEOUT_MS,
+      timeout: timeoutMs,
       shell: false,
       stdio: ['ignore', 'pipe', 'pipe'],
     });
@@ -35,6 +36,10 @@ function runJsonProbe(command, args, { runner = spawnSync, cwd = REPO_ROOT } = {
   } catch {
     return failedProbe();
   }
+}
+
+function runJsonProbe(command, args, options = {}) {
+  return runJsonCommand(command, args, { ...options, timeoutMs: PROBE_TIMEOUT_MS });
 }
 
 function inspectUpdateTools({ runner = spawnSync } = {}) {
@@ -99,11 +104,37 @@ function statusFor(name, value) {
   return 'unavailable';
 }
 
+function sanitizeRegression(name, value) {
+  const failureCode = name === 'ocr' ? 'OCR_REGRESSION_FAILED' : 'UPDATE_REGRESSION_FAILED';
+  if (!value || typeof value !== 'object' || Array.isArray(value) || value.ok !== true) {
+    return { status: 'unavailable', code: failureCode };
+  }
+  if (name === 'ocr') {
+    const matchesExpected = value.matchesExpected === true;
+    if (!matchesExpected) return { status: 'unavailable', code: failureCode };
+    const chars = Number.isSafeInteger(value.chars) && value.chars >= 0 ? value.chars : 0;
+    return { status: 'ready', code: 'OCR_REGRESSION_READY', chars, matchesExpected };
+  }
+  if (name === 'update') {
+    const checks = {
+      signature: value.checks?.signature === true,
+      archive: value.checks?.archive === true,
+      rollback: value.checks?.rollback === true,
+    };
+    if (!Object.values(checks).every(Boolean)) return { status: 'unavailable', code: failureCode };
+    return { status: 'ready', code: 'UPDATE_REGRESSION_READY', checks };
+  }
+  return { status: 'unavailable', code: failureCode };
+}
+
 function buildReport({
+  deep = false,
   ocrProbe = () => inspectOcr(),
   audioProbe = () => runJsonProbe('python3', ['tools/audio_hardware_preflight.py', '--json']),
   asrProbe = () => runJsonProbe('python3', ['tools/asr_runtime_preflight.py', '--json']),
   updateProbe = () => inspectUpdateTools(),
+  ocrVerify = () => runJsonCommand(process.execPath, [path.join(__dirname, 'screen-ocr-verify.cjs'), '--json'], { timeoutMs: DEEP_VERIFY_TIMEOUT_MS }),
+  updateVerify = () => runJsonCommand(process.execPath, [path.join(__dirname, 'update-verify.cjs'), '--json'], { timeoutMs: DEEP_VERIFY_TIMEOUT_MS }),
 } = {}) {
   const probes = { ocr: ocrProbe, audio: audioProbe, asr: asrProbe, update: updateProbe };
   const checks = {};
@@ -123,17 +154,55 @@ function buildReport({
     unavailable: statuses.filter((status) => status === 'unavailable').length,
     needs_configuration: statuses.filter((status) => status === 'needs_configuration').length,
   };
-  const ok = summary.ready === summary.checked;
-  return { ok, code: ok ? 'CAPABILITIES_READY' : 'CAPABILITIES_PARTIAL', summary, checks };
+  const report = { ok: summary.ready === summary.checked, code: 'CAPABILITIES_PARTIAL', summary, checks };
+  if (deep) {
+    const verifications = { ocr: ocrVerify, update: updateVerify };
+    const regressionChecks = {};
+    for (const [name, verify] of Object.entries(verifications)) {
+      let value;
+      try {
+        value = sanitizeRegression(name, verify());
+      } catch {
+        value = sanitizeRegression(name, null);
+      }
+      checks[name].deep = value;
+      regressionChecks[name] = value;
+    }
+    const regressionStatuses = Object.values(regressionChecks).map((check) => check.status);
+    const regressions = {
+      checked: regressionStatuses.length,
+      ready: regressionStatuses.filter((status) => status === 'ready').length,
+      unavailable: regressionStatuses.filter((status) => status === 'unavailable').length,
+    };
+    report.deep = true;
+    report.regressions = regressions;
+    report.ok = report.ok && regressions.ready === regressions.checked;
+  }
+  report.code = report.ok ? 'CAPABILITIES_READY' : 'CAPABILITIES_PARTIAL';
+  return report;
 }
 
 function main(argv = process.argv.slice(2)) {
-  const report = buildReport();
+  const report = buildReport({ deep: argv.includes('--deep') });
   if (argv.includes('--json')) process.stdout.write(`${JSON.stringify(report)}\n`);
-  else process.stdout.write(`Capability preflight: ${report.summary.ready}/${report.summary.checked} ready, ${report.summary.needs_configuration} need configuration, ${report.summary.unavailable} unavailable.\n`);
+  else {
+    const deepText = report.deep ? `, ${report.regressions.ready}/${report.regressions.checked} deep regressions ready` : '';
+    process.stdout.write(`Capability preflight: ${report.summary.ready}/${report.summary.checked} ready, ${report.summary.needs_configuration} need configuration, ${report.summary.unavailable} unavailable${deepText}.\n`);
+  }
   return report.ok || !argv.includes('--strict') ? 0 : 2;
 }
 
 if (require.main === module) process.exitCode = main();
 
-module.exports = { PROBE_TIMEOUT_MS, buildReport, inspectUpdateTools, main, runJsonProbe, sanitizeProbe, statusFor };
+module.exports = {
+  DEEP_VERIFY_TIMEOUT_MS,
+  PROBE_TIMEOUT_MS,
+  buildReport,
+  inspectUpdateTools,
+  main,
+  runJsonCommand,
+  runJsonProbe,
+  sanitizeProbe,
+  sanitizeRegression,
+  statusFor,
+};

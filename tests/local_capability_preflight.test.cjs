@@ -47,3 +47,50 @@ test('capability report converts malformed probes to a fixed failure', () => {
   assert.equal(report.checks.asr.code, 'CAPABILITY_PROBE_FAILED');
   assert.equal(report.checks.audio.status, 'unavailable');
 });
+
+test('deep capability report records sanitized OCR and update regressions', () => {
+  const report = buildReport({
+    deep: true,
+    ocrProbe: () => ({ ok: true, code: 'OCR_READY', languages: ['eng'], missing: [] }),
+    audioProbe: () => ({ ok: true, reason: 'audio input detected', display: { available: true } }),
+    asrProbe: () => ({ ok: true, code: 'ASR_READY', message: 'ready' }),
+    updateProbe: () => ({ ok: true, code: 'UPDATE_TOOLS_READY', tools: { gpg: true, tar: true } }),
+    ocrVerify: () => ({ ok: true, chars: 14, matchesExpected: true, text: 'private screen text' }),
+    updateVerify: () => ({ ok: true, checks: { signature: true, archive: true, rollback: true }, fingerprint: 'private-fingerprint', path: '/private/update' }),
+  });
+
+  assert.equal(report.ok, true);
+  assert.equal(report.deep, true);
+  assert.deepEqual(report.regressions, { checked: 2, ready: 2, unavailable: 0 });
+  assert.deepEqual(report.checks.ocr.deep, {
+    status: 'ready',
+    code: 'OCR_REGRESSION_READY',
+    chars: 14,
+    matchesExpected: true,
+  });
+  assert.deepEqual(report.checks.update.deep, {
+    status: 'ready',
+    code: 'UPDATE_REGRESSION_READY',
+    checks: { signature: true, archive: true, rollback: true },
+  });
+  assert.doesNotMatch(JSON.stringify(report), /private|fingerprint|update\/|screen text/);
+});
+
+test('deep capability report distinguishes regression failure from base readiness', () => {
+  const report = buildReport({
+    deep: true,
+    ocrProbe: () => ({ ok: true, code: 'OCR_READY', languages: ['eng'], missing: [] }),
+    audioProbe: () => ({ ok: true, reason: 'audio input detected', display: { available: true } }),
+    asrProbe: () => ({ ok: true, code: 'ASR_READY', message: 'ready' }),
+    updateProbe: () => ({ ok: true, code: 'UPDATE_TOOLS_READY', tools: { gpg: true, tar: true } }),
+    ocrVerify: () => ({ ok: false, code: 'OCR_MISMATCH', text: 'private mismatch' }),
+    updateVerify: () => ({ ok: false, code: 'UPDATE_VERIFY_FAILED', stderr: 'private failure' }),
+  });
+
+  assert.equal(report.ok, false);
+  assert.equal(report.code, 'CAPABILITIES_PARTIAL');
+  assert.deepEqual(report.regressions, { checked: 2, ready: 0, unavailable: 2 });
+  assert.deepEqual(report.checks.ocr.deep, { status: 'unavailable', code: 'OCR_REGRESSION_FAILED' });
+  assert.deepEqual(report.checks.update.deep, { status: 'unavailable', code: 'UPDATE_REGRESSION_FAILED' });
+  assert.doesNotMatch(JSON.stringify(report), /private|stderr/);
+});
